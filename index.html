@@ -535,8 +535,10 @@ function load(){
     else { state.tx = loc.tx; state.rules = loc.rules || {}; lastChange = loc.savedAt; }
   } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; lastChange = emb.savedAt; persist(); }
   else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; lastChange = loc.savedAt; }
-  state.tx.forEach(function(t){ t.channel = normChannel(t.channel); migrateCat(t); });
-  for(var rk in state.rules){ state.rules[rk] = migrateCatName(state.rules[rk], ''); }
+  state.tx.forEach(function(t){ t.channel = normChannel(t.channel); migrateCat(t); t.merchant = cleanMerchant(t.merchant); });
+  var nr = {};
+  for(var rk in state.rules){ var ck = cleanMerchant(rk); var mv = migrateCatName(state.rules[rk], ''); if(!nr[ck]) nr[ck] = mv; }
+  state.rules = nr;
   state.tx.forEach(function(t){
     if(t.dir === 'expense' && t.cat === '其他' && !state.rules[t.merchant]){
       var g = kwGuess(t.merchant || '', t.dir);
@@ -632,6 +634,14 @@ function cleanType(s){
 }
 function normText(s){ return s.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
 function normChannel(c){ return (c || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
+function cleanMerchant(m){
+  m = m || '';
+  var toks = ['快捷支付', '交易类型', '父', '95555'];
+  for(var i = 0; i < toks.length; i++){ var p = m.indexOf(toks[i]); if(p > 0) m = m.slice(0, p); }
+  m = m.replace(/\s+/g, '').replace(/^[”“"']+/, '').replace(/[”"'_\-. ]+$/, '');
+  if(m.length > 4 && /[加辆自]$/.test(m)) m = m.slice(0, -1);
+  return m || '未知商户';
+}
 function splitMerchant(typeStr){
   var channel = '', rest = typeStr;
   var idx = typeStr.indexOf('-');
@@ -656,13 +666,13 @@ function buildTx(amount, mon, day, hh, mm, typeStr, tail){
   if(/朝朝宝|朝朝盈|理财|基金/.test(normText(typeStr))){ dir = 'expense'; g = { cat:'转账', sure:true }; }
   return {
     id: uid(), date: makeDate(mon, day), time: pad(hh) + ':' + mm,
-    amount: amount, dir: dir, channel: sm.channel, merchant: sm.merchant,
+    amount: amount, dir: dir, channel: sm.channel, merchant: cleanMerchant(sm.merchant),
     cat: g.cat, note: dir === 'refund' ? '退款' : '',
     _sure: g.sure, _tail: tail || '', _type: typeStr
   };
 }
 function pickAmount(seg){
-  var m = seg.match(/金额[^0-9]{0,20}([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+  var m = seg.match(/金额[^0-9]{0,20}([0-9][0-9,]*\.[0-9]{1,2})/);
   if(!m) return 0;
   var v = parseFloat(m[1].replace(/,/g, ''));
   return v > 0 ? v : 0;
@@ -710,7 +720,7 @@ function extractRaw(seg){
   if(t.merchant.length > 40) t.merchant = t.merchant.slice(0, 40) + '…';
   return t;
 }
-function txKey(t){ return t.date + '|' + t.time + '|' + normChannel(t.channel) + '|' + normText(t.merchant) + '|' + t.amount; }
+function txKey(t){ return t.date + '|' + t.time + '|' + t.amount + '|' + t.dir; }
 function parseSMS(text){
   var segs = text.split(/(?=交易提醒|【招商银行】|金额|您账户|您尾号)/);
   var out = [], seen = {};
