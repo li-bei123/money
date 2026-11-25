@@ -312,6 +312,30 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
     </div>
   </div>
 
+  <!-- SECTION: panel correct -->
+  <div class="panel" id="panel-correct">
+    <div class="card">
+      <h2>🏷️ 标签校正（选做）</h2>
+      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。不传也不影响正常记账。</p>
+      <div class="upload-zone" id="cUploadZone">
+        <span class="uz-ico">🧾</span>
+        <span class="uz-t">点击选择平台截图</span>
+        <span class="uz-s">抖音"账单"页、淘宝/京东"我的订单"页，长截图、一次多张都可以</span>
+      </div>
+      <input type="file" id="cFiles" accept="image/*" multiple hidden>
+      <div class="ocr-progress" id="cProgress" hidden>
+        <div class="ocr-bar"><div class="ocr-fill" id="cFill"></div></div>
+        <div class="ocr-text" id="cText">准备中…</div>
+      </div>
+    </div>
+    <div class="card" id="cResultCard" hidden>
+      <h2>校正结果 <span id="cCount" style="font-size:12px;color:var(--muted);font-weight:400"></span></h2>
+      <p class="hint">已自动按商品名改好标签，下面列出改动明细供复查；改错的可在明细页点那笔改回（改回后会记住你的选择）。</p>
+      <div id="cList"></div>
+      <div id="cUnmatched"></div>
+    </div>
+  </div>
+
   <!-- SECTION: panel settings -->
   <div class="panel" id="panel-settings">
     <div class="card">
@@ -369,6 +393,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
     <button class="nav-btn active" data-tab="record"><span class="ni">📩</span>记账</button>
     <button class="nav-btn" data-tab="list"><span class="ni">📒</span>明细</button>
     <button class="nav-btn" data-tab="chart"><span class="ni">📊</span>图表</button>
+    <button class="nav-btn" data-tab="correct"><span class="ni">🏷️</span>校正</button>
     <button class="nav-btn" data-tab="settings"><span class="ni">⚙️</span>设置</button>
   </div>
 </nav>
@@ -481,20 +506,19 @@ var PALETTE = ['#4f6ef7','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4
 /* SECTION: keywords */
 var KEYWORDS = [
   ['工资',['工资','代发','奖金','薪酬']],
-  ['饮食',['盒马','美团','饿了么','麦当劳','肯德基','星巴克','瑞幸','餐饮','餐厅','饭店','食堂','超市','买菜','叮咚','朴朴','永辉','沃尔玛','家乐福','便利蜂','罗森','全家','蜜雪','喜茶','海底捞','必胜客','外卖','食品','七鲜','山姆','Costco','麦德龙','米饭','面','面包','牛奶','零食','茶饮','咖啡','烧烤','火锅']],
+  ['服饰鞋帽',['服饰','服装','鞋','帽','衣服','裤','童装','羽绒','哥伦比亚','百丽','童缘','优衣库','耐克','阿迪','安踏','李宁','森马','太平鸟','运动服装','童装商贸','鞋业','睡衣','睡裙','家居服','内衣','袜子','外套','T恤','短裙','婚纱','箱包','拖鞋','孕妇装','女童','男童','连衣裙','棉服','马甲','女装','男装','毛衣','卫衣','学步鞋','公主鞋','童鞋','发箍','假发','靴','牧童','秋衣','秋裤','圆领','辣妹']],
+  ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','餐具','托盘','烤箱','保鲜','水杯','宜家','无印良品','软装','灯具','日用品','纸品','陶瓷','瓷','景德镇','四件套','窗帘','消毒液','滴露','纸巾','心相印','个护','洗衣','沐浴','洗发']],
+  ['饮食',['盒马','美团','饿了么','麦当劳','肯德基','星巴克','瑞幸','餐饮','餐厅','饭店','食堂','超市','买菜','叮咚','朴朴','永辉','沃尔玛','家乐福','便利蜂','罗森','全家','蜜雪','喜茶','海底捞','必胜客','外卖','食品','七鲜','山姆','Costco','麦德龙','米饭','面','面包','牛奶','零食','茶饮','咖啡','烧烤','火锅','代金券','锅鱼','蹄花','牛肉','芭乐','烤','餐','牦牛','水果','蔬菜','锅底']],
   ['交通',['滴滴','地铁','公交','加油','停车','12306','铁路','机票','航空','打车','高德','曹操','哈啰','青桔','单车','高速','出行']],
-  ['服饰鞋帽',['服饰','服装','鞋','帽','衣服','裤','童装','羽绒','哥伦比亚','百丽','童缘','优衣库','耐克','阿迪','安踏','李宁','森马','太平鸟','运动服装','童装商贸','鞋业','睡衣','睡裙','家居服','内衣','袜子','外套','T恤','短裙','婚纱','箱包','拖鞋','孕妇装']],
-  ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','宜家','无印良品','软装','灯具','日用品','纸品','陶瓷','瓷','景德镇','四件套','窗帘']],
   ['居住缴费',['水费','电费','燃气','物业','房租','宽带','话费','供暖','热力','自来水','电力']],
-  ['娱乐休闲',['电影','影院','游戏','KTV','旅游','门票','景区','剧本杀','演出','大麦','网吧']],
+  ['娱乐休闲',['电影','影院','游戏','KTV','旅游','门票','景区','剧本杀','演出','大麦','网吧','红叶','坡峰岭']],
   ['医疗健康',['医院','药房','药店','体检','诊所','卫生']],
   ['教育学习',['学费','书店','课程','培训','教育']],
   ['订阅会员',['会员','订阅','爱奇艺','腾讯视频','优酷','哔哩哔哩','网易云','QQ音乐','云盘','网盘']],
   ['还款',['还款','信用卡','花呗','白条','借呗']],
   ['转账',['朝朝宝','朝朝盈','理财','基金','转账']],
   ['人情往来',['红包','礼金']]
-];
-function pad(n){ return n < 10 ? '0' + n : '' + n; }
+];function pad(n){ return n < 10 ? '0' + n : '' + n; }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function money(n){ return (Math.round(n*100)/100).toFixed(2); }
 function fmtYM(y,m){ return y + '年' + (m+1) + '月'; }
@@ -749,12 +773,14 @@ function parseSMS(text){
   return out;
 }
 function ocrNormalize(text){
-  return text.replace(/拌音/g, '抖音')
+  return text.split('\n').map(function(ln){
+    return ln.replace(/拌音/g, '抖音')
              .replace(/支[何村付]宝/g, '支付宝')
              .replace(/招[高商]银行/g, '招商银行')
              .replace(/财[付什]通/g, '财付通')
              .replace(/文付/g, '支付')
-             .replace(/([\u4e00-\u9fa50-9])\s+(?=[\u4e00-\u9fa50-9])/g, '$1');
+             .replace(/([\u4e00-\u9fa50-9])[ \t\u00a0]+(?=[\u4e00-\u9fa50-9])/g, '$1');
+  }).join('\n');
 }
 
 /* SECTION: parse preview render */
@@ -1668,6 +1694,223 @@ document.getElementById('fClear').addEventListener('click', function(){
   renderList();
   renderCharts();
 });
+
+/* SECTION: tag correct */
+var correctBusy = false;
+var GENERIC_MERCHANT = /抖音电商|格物致品|生活服务|所见所得|平台商户|^淘宝|^天猫|^京东|拼多多/;
+var PLATFORM_NAME = { douyin: '抖音', taobao: '淘宝', jd: '京东', generic: '通用' };
+function setCProgress(pct, text){
+  document.getElementById('cProgress').hidden = false;
+  if(pct !== null) document.getElementById('cFill').style.width = Math.min(100, Math.round(pct)) + '%';
+  if(text) document.getElementById('cText').textContent = text;
+}
+function detectPlatform(txt){
+  if(/抖音商城|拌音商城|生活服务-|账单人格|收支统计/.test(txt)) return 'douyin';
+  if(/实付款|实付金额|淘宝|天猫/.test(txt)) return 'taobao';
+  if(/实付[¥￥]|京东/.test(txt)) return 'jd';
+  return 'generic';
+}
+function normProduct(l){
+  var s = l;
+  for(var n = 0; n < 3; n++){
+    s = s.replace(/^[退款\-—人口四吉WE，,、\s”"']+/, '')
+         .replace(/^退款[-—]?/, '')
+         .replace(/^(抖音商城|拌音商城|生活服务|淘宝网?|天猫|京东)[-—]?/, '');
+  }
+  s = s.replace(/[…”"'。.]+$/, '').trim();
+  return s;
+}
+function parseDateLine(l){
+  var m = l.match(/(\d{1,2})-(\d{1,2})\s*(\d{1,2})[:：](\d{2})/);
+  if(m && +m[1] >= 1 && +m[1] <= 12) return { mon: +m[1], day: +m[2] };
+  var m2 = l.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
+  if(m2) return { mon: +m2[2], day: +m2[3] };
+  return null;
+}
+function extractOrderItems(text){
+  var lines = text.split('\n');
+  var items = [], seenItem = {};
+  var SKIP = /物流|售后|确认收货|快递|已发货|已发贷|已签收|待收货|待发货|待付款|退货宝|过货宝|极速退款|价保|无理由|假一赔|更多|查看全部|筛选|管理|订单|暂无/;
+  for(var i = 0; i < lines.length; i++){
+    var l = lines[i].trim();
+    if(!l) continue;
+    var am = l.match(/实[付人]款?额?[¥￥yYJj:：]?[\s"'”]*(\d[\d,]*(?:\.\d{1,2})?)/);
+    if(!am) continue;
+    var amount = parseFloat(am[1].replace(/,/g, ''));
+    if(!(amount > 0)) continue;
+    var mon = null, day = null;
+    var head = l.slice(0, l.search(/实[付人]/));
+    var dm = head.match(/(\d{1,2})[.\-\/](\d{1,2})/) || head.match(/(\d{2})(\d{2})/);
+    if(dm && +dm[1] >= 1 && +dm[1] <= 12 && +dm[2] >= 1 && +dm[2] <= 31){ mon = +dm[1]; day = +dm[2]; }
+    var cands = [];
+    for(var k = i - 1; k >= Math.max(0, i - 10); k--){
+      var up = lines[k].trim();
+      if(!up) continue;
+      if(/实[付人]款?额?/.test(up)) break;
+      if(/^淘宝|^天猫|^京东|旗舰店|店\s*>?$/.test(up)) break;
+      if(SKIP.test(up)) continue;
+      var cjk = up.replace(/[^\u4e00-\u9fa5]/g, '').length;
+      if(cjk >= 4) cands.push(up.replace(/[¥￥Yy]\s*\d[\d.]*\s*$/, '').trim());
+      if(cands.length >= 5) break;
+    }
+    var product = cands.join(' ');
+    if(product.replace(/[^\u4e00-\u9fa5]/g, '').length < 4) product = '';
+    var ctx = lines.slice(Math.max(0, i - 8), i + 3).join('');
+    var refund = /退款成功|已退款|退货退款|退款完成/.test(ctx);
+    var ik = (refund ? 'r' : 'e') + '|' + amount + '|' + mon + '-' + day + '|' + (product || l).slice(0, 8);
+    if(seenItem[ik]) continue;
+    seenItem[ik] = 1;
+    items.push({ amount: amount, refund: refund, product: normProduct(product), mon: mon, day: day, line: l });
+  }
+  return items;
+}
+function extractItems(text){
+  var plat0 = detectPlatform(text);
+  if(plat0 === 'taobao' || plat0 === 'jd') return extractOrderItems(text);
+  var lines = text.split('\n');
+  var items = [], seenItem = {};
+  for(var i = 0; i < lines.length; i++){
+    var l = lines[i].trim();
+    if(!l) continue;
+    if(/^\s*支出|^\s*收入|收支统计|共支付|搜索|账单人格|一键领|积分|已攒/.test(l)) continue;
+    var am = l.match(/[¥#”"']?\s*(-?\d[\d,]*\.\d{2})\s*$/) || l.match(/实付[款额]?\s*[¥￥]?\s*(-?\d[\d,]*\.\d{2})/);
+    if(!am) continue;
+    var raw = am[1];
+    var amount = Math.abs(parseFloat(raw.replace(/,/g, '')));
+    if(!(amount > 0)) continue;
+    var refund = /^\s*退/.test(l) || /退款[-—]/.test(l) || /退款成功/.test(l);
+    var product = normProduct(l.replace(am[0], ''));
+    var dt = null;
+    var order = [i + 1, i + 2, i - 1, i - 2];
+    for(var k = 0; k < order.length; k++){
+      var idx = order[k];
+      if(idx < 0 || idx >= lines.length || idx === i) continue;
+      dt = parseDateLine(lines[idx]);
+      if(dt) break;
+    }
+    if(product.length < 2) product = '';
+    var ik = (refund ? 'r' : 'e') + '|' + amount + '|' + (dt ? dt.mon + '-' + dt.day : '?') + '|' + product.slice(0, 8);
+    if(seenItem[ik]) continue;
+    seenItem[ik] = 1;
+    items.push({ amount: amount, refund: refund, product: product, mon: dt ? dt.mon : null, day: dt ? dt.day : null, line: l });
+  }
+  return items;
+}
+function matchItems(items){
+  var used = {}, matched = [], unmatched = [];
+  items.forEach(function(it){
+    var wantDir = it.refund ? 'refund' : 'expense';
+    var cands = state.tx.filter(function(t){
+      if(used[t.id]) return false;
+      if(t.dir !== wantDir) return false;
+      if(Math.abs(t.amount - it.amount) > 0.005) return false;
+      if(it.mon != null){
+        var tm = +t.date.slice(5, 7), td = +t.date.slice(8, 10);
+        if(tm !== it.mon || td !== it.day) return false;
+      }
+      return true;
+    });
+    if(!cands.length){ unmatched.push(it); return; }
+    var tx = cands[0];
+    used[tx.id] = 1;
+    if(wantDir === 'refund') return;
+    var g = it.product ? kwGuess(it.product, tx.dir) : { cat: tx.cat, sure: false };
+    matched.push({ tx: tx, item: it, suggest: g.sure ? g.cat : tx.cat, sure: g.sure });
+  });
+  return { matched: matched, unmatched: unmatched };
+}
+function renderCorrectResult(res, plat, changes){
+  var card = document.getElementById('cResultCard');
+  var box = document.getElementById('cList');
+  box.innerHTML = '';
+  changes.forEach(function(c){
+    var item = document.createElement('div'); item.className = 'p-item';
+    var head = document.createElement('div'); head.className = 'p-head';
+    var t1 = document.createElement('span'); t1.className = 'sms-title';
+    t1.textContent = c.tx.date.slice(5).replace('-', '月') + '日 ' + (c.tx.time || '') + ' · ' + (c.tx.dir === 'expense' ? '−' : '+') + money(c.tx.amount);
+    head.appendChild(t1);
+    var bd = document.createElement('span'); bd.className = 'badge';
+    bd.textContent = c.from + ' → ' + c.to;
+    head.appendChild(bd);
+    item.appendChild(head);
+    var m1 = document.createElement('div'); m1.className = 'p-merchant';
+    m1.textContent = (c.product ? '商品：' + c.product + ' · ' : '') + '商户：' + c.tx.merchant;
+    item.appendChild(m1);
+    box.appendChild(item);
+  });
+  var uncertain = res.matched.length - changes.length;
+  document.getElementById('cCount').textContent = '识别为' + PLATFORM_NAME[plat] + '账单 · 匹配 ' + res.matched.length + ' 笔 · 已改 ' + changes.length + ' 笔' + (uncertain > 0 ? ' · ' + uncertain + ' 笔没把握未动' : '');
+  var um = document.getElementById('cUnmatched');
+  um.innerHTML = '';
+  if(res.unmatched.length){
+    var t = document.createElement('p'); t.className = 'chart-note';
+    t.textContent = '未匹配 ' + res.unmatched.length + ' 条（账本里没有同金额同方向的记录，可能对应短信还没入账，或属合并付款）：';
+    um.appendChild(t);
+    res.unmatched.slice(0, 12).forEach(function(it){
+      var d = document.createElement('div'); d.className = 'p-merchant';
+      d.textContent = (it.refund ? '退 ' : '支 ') + money(it.amount) + ' · ' + (it.product || it.line).slice(0, 30);
+      um.appendChild(d);
+    });
+  }
+  card.hidden = false;
+}
+function runCorrect(files){
+  if(correctBusy){ toast('正在识别中，请稍候'); return; }
+  correctBusy = true;
+  setCProgress(0, '准备识别…');
+  getOcrWorker().then(function(worker){
+    var allText = '', done = 0, total = 0;
+    var chain = Promise.resolve();
+    files.forEach(function(f, fi){
+      chain = chain.then(function(){
+        setCProgress(null, '正在处理第 ' + (fi + 1) + '/' + files.length + ' 张截图…');
+        return imageToSlices(f).then(function(ss){
+          total += ss.length;
+          var seq = Promise.resolve();
+          ss.forEach(function(cv, j){
+            seq = seq.then(function(){
+              setCProgress(total ? done / total * 100 : 0, '识别第 ' + (fi + 1) + '/' + files.length + ' 张 · 分段 ' + (j + 1) + '/' + ss.length);
+              return worker.recognize(cv).then(function(r){ allText += r.data.text + '\n'; done++; });
+            });
+          });
+          return seq;
+        });
+      });
+    });
+    return chain.then(function(){ return allText; });
+  }).then(function(allText){
+    document.getElementById('cProgress').hidden = true;
+    var norm = ocrNormalize(allText);
+    var plat = detectPlatform(norm);
+    var items = extractItems(norm);
+    if(!items.length){ toast('没识别出账单条目，请确认截图是平台账单/订单页'); return; }
+    var res = matchItems(items);
+    var changes = [];
+    res.matched.forEach(function(r){
+      if(r.sure && r.suggest !== r.tx.cat){
+        var oldCat = r.tx.cat;
+        r.tx.cat = r.suggest;
+        if(!GENERIC_MERCHANT.test(r.tx.merchant || '')) state.rules[r.tx.merchant] = r.suggest;
+        changes.push({ tx: r.tx, from: oldCat, to: r.suggest, product: r.item.product });
+      }
+    });
+    if(changes.length){ save(); renderAll(); }
+    renderCorrectResult(res, plat, changes);
+    toast(changes.length ? '已更改 ' + changes.length + ' 个标签' : '标签都对，无需更改');
+  }).catch(function(){
+    document.getElementById('cProgress').hidden = true;
+    toast('识别失败：请重试，或检查网络（首次需加载识别引擎）');
+  }).then(function(){ correctBusy = false; });
+}
+document.getElementById('cUploadZone').addEventListener('click', function(){
+  document.getElementById('cFiles').click();
+});
+document.getElementById('cFiles').addEventListener('change', function(){
+  if(this.files && this.files.length) runCorrect(Array.prototype.slice.call(this.files));
+  this.value = '';
+});
+
+
 
 /* SECTION: tabs & events */
 function switchTab(name){
