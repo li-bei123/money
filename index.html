@@ -207,7 +207,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel active" id="panel-record">
     <div class="card">
       <h2>📷 上传短信截图，自动识别</h2>
-      <p class="hint">支持长截图、一次选多张。识别全程在你手机本地完成，图片不会上传。入账的数据作为记账底层依据；与账本已有记录"时间＋方式＋内容＋金额"四要素相同的会自动跳过不重复记；想用哪部分算账，去"明细"页用筛选条件选。首次识别会自动下载语言包（约7MB，建议WiFi），下载一次后永久缓存、秒开。</p>
+      <p class="hint">支持长截图、一次选多张。识别全程在你手机本地完成，图片不会上传。"朝朝宝自动转入"这类卡内理财互转自动忽略、不入账；与账本已有记录"时间＋方式＋内容＋金额"四要素相同的会自动跳过不重复记；想用哪部分算账，去"明细"页用筛选条件选。首次识别会自动下载语言包（约7MB，建议WiFi），下载一次后永久缓存、秒开。</p>
       <div class="upload-zone" id="uploadZone">
         <span class="uz-ico">🖼️</span>
         <span class="uz-t">点击选择短信截图</span>
@@ -483,8 +483,8 @@ var KEYWORDS = [
   ['工资',['工资','代发','奖金','薪酬']],
   ['饮食',['盒马','美团','饿了么','麦当劳','肯德基','星巴克','瑞幸','餐饮','餐厅','饭店','食堂','超市','买菜','叮咚','朴朴','永辉','沃尔玛','家乐福','便利蜂','罗森','全家','蜜雪','喜茶','海底捞','必胜客','外卖','食品','七鲜','山姆','Costco','麦德龙','米饭','面','面包','牛奶','零食','茶饮','咖啡','烧烤','火锅']],
   ['交通',['滴滴','地铁','公交','加油','停车','12306','铁路','机票','航空','打车','高德','曹操','哈啰','青桔','单车','高速','出行']],
-  ['服饰鞋帽',['服饰','服装','鞋','帽','衣服','裤','童装','羽绒','哥伦比亚','百丽','童缘','优衣库','耐克','阿迪','安踏','李宁','森马','太平鸟','运动服装','童装商贸','鞋业']],
-  ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','宜家','无印良品','软装','灯具']],
+  ['服饰鞋帽',['服饰','服装','鞋','帽','衣服','裤','童装','羽绒','哥伦比亚','百丽','童缘','优衣库','耐克','阿迪','安踏','李宁','森马','太平鸟','运动服装','童装商贸','鞋业','睡衣','睡裙','家居服','内衣','袜子','外套','T恤','短裙','婚纱','箱包','拖鞋','孕妇装']],
+  ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','宜家','无印良品','软装','灯具','日用品','纸品','陶瓷','瓷','景德镇','四件套','窗帘']],
   ['居住缴费',['水费','电费','燃气','物业','房租','宽带','话费','供暖','热力','自来水','电力']],
   ['娱乐休闲',['电影','影院','游戏','KTV','旅游','门票','景区','剧本杀','演出','大麦','网吧']],
   ['医疗健康',['医院','药房','药店','体检','诊所','卫生']],
@@ -545,6 +545,13 @@ function load(){
       if(g.sure) t.cat = g.cat;
     }
   });
+  var purged = state.tx.length;
+  state.tx = state.tx.filter(function(t){ return !/朝朝宝|朝朝盈/.test(t.merchant || ''); });
+  purged -= state.tx.length;
+  if(purged > 0){
+    save();
+    setTimeout(function(){ toast('已按规则忽略并删除 ' + purged + ' 笔朝朝宝类内部转账（不算支出）'); }, 400);
+  }
 }
 
 /* SECTION: cloud sync */
@@ -634,6 +641,9 @@ function cleanType(s){
 }
 function normText(s){ return s.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
 function normChannel(c){ return (c || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
+function isIgnoredXfer(typeStr){
+  return /朝朝宝|朝朝盈/.test(normText(typeStr));
+}
 function cleanMerchant(m){
   m = m || '';
   var toks = ['快捷支付', '交易类型', '父', '95555'];
@@ -684,6 +694,7 @@ function extractField(seg){
   if(!tm) return null;
   var ty = seg.match(/交易(?:类型|动向)\s*([\s\S]*?)(?=交易时间|尾[号己与亏忆]|金额|账号|【|$)/);
   if(!ty) ty = seg.match(/(?:类型|动向)\s*([\s\S]*?)(?=交易时间|尾[号己与亏忆]|金额|账号|【|$)/);
+  if(ty && isIgnoredXfer(ty[1])) return null;
   var typeStr;
   if(ty){ typeStr = cleanType(ty[1]); }
   else {
@@ -701,6 +712,7 @@ function extractRaw(seg){
   var tm = seg.match(/(\d{1,2})月(\d{1,2})日\s*(\d{1,2})[:：](\d{2})/);
   if(!tm) return null;
   var clean = cleanType(seg);
+  if(isIgnoredXfer(clean)) return null;
   var rich = clean.match(/在(.+?)(快捷支付|退款|消费|扣款|支付)([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
   var amount, typeStr;
   if(rich){
