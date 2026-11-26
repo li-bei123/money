@@ -322,7 +322,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
         <div class="donut-box chart-wrap" id="donutBox"></div>
         <div class="legend" id="donutLegend"></div>
       </div>
-      <p class="chart-note">标签共18个；红色−记为支出、绿色＋记为收入，占比图按支出笔的标签统计。</p>
+      <p class="chart-note">标签共23个；红色−记为支出、绿色＋记为收入，占比图按支出笔的标签统计。</p>
     </div>
     <div class="chart-card">
       <h3>📈 每日支出走势</h3>
@@ -517,6 +517,11 @@ var CATS = [
   {id:'交通',icon:'🚌'},
   {id:'服饰鞋帽',icon:'👗'},
   {id:'家居生活',icon:'🛋️'},
+  {id:'孩子服饰',icon:'🧒'},
+  {id:'孩子家居',icon:'🛏️'},
+  {id:'孩子玩具',icon:'🧸'},
+  {id:'孩子学习',icon:'✏️'},
+  {id:'孩子饮食',icon:'🍼'},
   {id:'转账',icon:'🔁'},
   {id:'还款',icon:'💳'},
   {id:'退货',icon:'🔄'},
@@ -549,6 +554,11 @@ var PALETTE = ['#4f6ef7','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4
 /* SECTION: keywords */
 var KEYWORDS = [
   ['工资',['工资','代发','奖金','薪酬']],
+  ['孩子服饰',['童装','女童','男童','儿童','婴幼儿','婴儿','学步鞋','公主鞋','童鞋','宝宝','母婴','牧童','童']],
+  ['孩子家居',['婴儿床','儿童床','床围','爬行垫','餐椅','儿童餐具','睡袋','纸尿裤','尿不湿','拉拉裤','安抚']],
+  ['孩子玩具',['玩具','积木','拼图','玩偶','公仔','乐高','磁力片','芭比','遥控']],
+  ['孩子学习',['绘本','文具','书包','点读','早教','学习机','儿童书','练习册','字帖']],
+  ['孩子饮食',['奶粉','辅食','米粉','果泥','溶豆','奶酪棒','儿童牛奶']],
   ['服饰鞋帽',['服饰','服装','鞋','帽','衣服','裤','童装','羽绒','哥伦比亚','百丽','童缘','优衣库','耐克','阿迪','安踏','李宁','森马','太平鸟','运动服装','童装商贸','鞋业','睡衣','睡裙','家居服','内衣','袜子','外套','T恤','短裙','婚纱','箱包','拖鞋','孕妇装','女童','男童','连衣裙','棉服','马甲','女装','男装','毛衣','卫衣','学步鞋','公主鞋','童鞋','发箍','假发','靴','牧童','秋衣','秋裤','圆领','辣妹']],
   ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','餐具','托盘','烤箱','保鲜','水杯','宜家','无印良品','软装','灯具','日用品','纸品','陶瓷','瓷','景德镇','四件套','窗帘','消毒液','滴露','纸巾','心相印','个护','洗衣','沐浴','洗发']],
   ['饮食',['盒马','美团','饿了么','麦当劳','肯德基','星巴克','瑞幸','餐饮','餐厅','饭店','食堂','超市','买菜','叮咚','朴朴','永辉','沃尔玛','家乐福','便利蜂','罗森','全家','蜜雪','喜茶','海底捞','必胜客','外卖','食品','七鲜','山姆','Costco','麦德龙','米饭','面','面包','牛奶','零食','茶饮','咖啡','烧烤','火锅','代金券','锅鱼','蹄花','牛肉','芭乐','烤','餐','牦牛','水果','蔬菜','锅底']],
@@ -604,7 +614,7 @@ function load(){
     else { state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
   } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; lastChange = emb.savedAt; persist(); }
   else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
-  state.tx.forEach(function(t){ t.channel = normChannel(t.channel); migrateCat(t); t.merchant = cleanMerchant(t.merchant); });
+  state.tx.forEach(function(t){ t.channel = normPlatform(t.channel); migrateCat(t); t.merchant = cleanMerchant(t.merchant); });
   var nr = {};
   for(var rk in state.rules){ var ck = cleanMerchant(rk); var mv = migrateCatName(state.rules[rk], ''); if(!nr[ck]) nr[ck] = mv; }
   state.rules = nr;
@@ -616,9 +626,9 @@ function load(){
       var g2 = kwGuess(t.merchant || '', 'expense');
       t.cat = g2.sure ? g2.cat : '其他';
     }
-    if(t.dir === 'expense' && t.cat === '其他' && !state.rules[t.merchant]){
+    if(t.dir === 'expense' && !state.rules[t.merchant]){
       var g = kwGuess(t.merchant || '', t.dir);
-      if(g.sure) t.cat = g.cat;
+      if(g.sure && (t.cat === '其他' || (g.cat.indexOf('孩子') === 0 && t.cat !== g.cat))) t.cat = g.cat;
     }
   });
   var purged = state.tx.length;
@@ -718,6 +728,18 @@ function cleanType(s){
 }
 function normText(s){ return s.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
 function normChannel(c){ return (c || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, ''); }
+function normPlatform(c){
+  var t = normChannel(c);
+  if(!t) return '';
+  if(/抖音|拌音|抖言|抖意/.test(t)) return '抖音';
+  if(/支付宝|支村宝|支何宝|文付宝/.test(t)) return '支付宝';
+  if(/财付通|微信/.test(t)) return '微信';
+  if(/拼多多/.test(t)) return '拼多多';
+  if(/京东/.test(t)) return '京东';
+  if(/华为/.test(t)) return '华为支付';
+  if(/银联/.test(t)) return '银联';
+  return t;
+}
 function isIgnoredXfer(typeStr){
   return /朝朝宝|朝朝盈/.test(normText(typeStr));
 }
@@ -736,7 +758,7 @@ function splitMerchant(typeStr){
   rest = rest.replace(/^(支付宝|财付通|微信支付|抖音支付)[-—](消费[-—])?/, '');
   var merchant = rest.replace(/(快捷支付|快捷|网上支付|手机支付|扫码支付|消费|代扣|扣款|支付|退款|退货|转入|转出)+$/, '').trim();
   if(!merchant) merchant = rest || '未知商户';
-  return { channel: normChannel(channel), merchant: merchant };
+  return { channel: normPlatform(channel), merchant: merchant };
 }
 function makeDate(mon, day){
   var y = now.getFullYear();
@@ -978,7 +1000,7 @@ function displayList(){
     if(fState.dir === 'expense' && t.dir !== 'expense') return false;
     if(fState.dir === 'income' && t.dir === 'expense') return false;
     if(fState.cat !== 'all' && t.cat !== fState.cat) return false;
-    var ch = normChannel(t.channel);
+    var ch = normPlatform(t.channel);
     if(fState.plat === 'none'){ if(ch) return false; }
     else if(fState.plat !== 'all' && ch !== fState.plat) return false;
     return true;
@@ -989,7 +1011,7 @@ function displayList(){
 function refreshPlatOptions(){
   var sel = document.getElementById('fPlat');
   var chans = {};
-  state.tx.forEach(function(t){ var c = normChannel(t.channel); if(c) chans[c] = 1; });
+  state.tx.forEach(function(t){ var c = normPlatform(t.channel); if(c) chans[c] = 1; });
   var cur = fDraft.plat;
   sel.innerHTML = '';
   var o0 = document.createElement('option'); o0.value = 'all'; o0.textContent = '全部平台'; sel.appendChild(o0);
@@ -1035,10 +1057,6 @@ function renderList(){
     var lb = document.createElement('b');
     lb.textContent = (+d.slice(5,7)) + '月' + (+d.slice(8,10)) + '日 周' + WEEK[dt.getDay()];
     dh.appendChild(lb);
-    var ds = monthStats(byDay[d]);
-    var dv = document.createElement('span');
-    dv.textContent = '支 ' + money(ds.out) + (ds.inc > 0 ? ' · 收 ' + money(ds.inc) : '');
-    dh.appendChild(dv);
     g.appendChild(dh);
     byDay[d].sort(function(a,b){ return (b.time || '').localeCompare(a.time || ''); });
     byDay[d].forEach(function(t){
@@ -1053,7 +1071,7 @@ function renderList(){
       var chip = document.createElement('span'); chip.className = 'cat-chip'; chip.textContent = t.cat;
       m2.appendChild(chip);
       var info = document.createElement('span');
-      info.textContent = (t.time || '') + (normChannel(t.channel) ? ' · ' + normChannel(t.channel) : '') + (t.dir === 'refund' ? ' · 退款' : '');
+      info.textContent = (t.time || '') + (normPlatform(t.channel) ? ' · ' + normPlatform(t.channel) : '') + (t.dir === 'refund' ? ' · 退款' : '');
       m2.appendChild(info);
       mid.appendChild(m2);
       row.appendChild(mid);
