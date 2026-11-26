@@ -350,6 +350,14 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
       <div id="rankBox"></div>
     </div>
     <div class="chart-card">
+      <h3>💰 结余标签占比（支出 − 对应退货）</h3>
+      <div class="donut-flex">
+        <div class="donut-box chart-wrap" id="netBox"></div>
+        <div class="legend" id="netLegend"></div>
+      </div>
+      <p class="chart-note">每个标签的净支出＝该标签支出 − 该标签退货，按净值算占比；净值为负的标签（退货多于支出、或还没细分的退款）不进占比——把平台账单传到校正页细分后会自动归入各标签。</p>
+    </div>
+    <div class="chart-card">
       <h3>📊 逐月收支对比</h3>
       <div class="trend-filter">
         <label class="f-item">开始月份<input type="month" id="cfStart"></label>
@@ -366,7 +374,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel" id="panel-correct">
     <div class="card">
       <h2>🏷️ 标签校正（选做）</h2>
-      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。不传也不影响正常记账。</p>
+      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。退款/退货笔也会按商品名细化标签（如童装退款→孩子服饰、女装退款→服饰鞋帽），商品名看不出类别的保持"退货"。不传也不影响正常记账。</p>
       <div class="upload-zone" id="cUploadZone">
         <span class="uz-ico">🧾</span>
         <span class="uz-t">点击选择平台截图</span>
@@ -1264,6 +1272,63 @@ function renderRank(list){
     box.appendChild(row);
   });
 }
+function renderNetDonut(list){
+  var box = document.getElementById('netBox');
+  var lg = document.getElementById('netLegend');
+  box.innerHTML = ''; lg.innerHTML = '';
+  var map = {};
+  list.forEach(function(t){
+    if(t.dir === 'expense'){ map[t.cat] = (map[t.cat] || 0) + t.amount; }
+    else if(t.dir === 'refund'){ map[t.cat] = (map[t.cat] || 0) - t.amount; }
+  });
+  var arr = [];
+  for(var k in map) if(map[k] > 0.004) arr.push({ cat: k, val: map[k] });
+  arr.sort(function(a, b){ return b.val - a.val; });
+  var total = arr.reduce(function(sm, x){ return sm + x.val; }, 0);
+  if(!arr.length || total <= 0){
+    var e = document.createElement('div'); e.className = 'parse-empty';
+    e.textContent = '当前范围内没有净支出数据';
+    box.appendChild(e);
+    return;
+  }
+  var svg = svgEl('svg', { viewBox: '0 0 170 170' });
+  var cx = 85, cy = 85, r = 62, C = 2 * Math.PI * r;
+  var off = 0;
+  arr.forEach(function(x, i){
+    var frac = x.val / total;
+    var c = svgEl('circle', {
+      cx: cx, cy: cy, r: r, fill: 'none',
+      stroke: PALETTE[i % PALETTE.length], 'stroke-width': 26,
+      'stroke-dasharray': (frac * C) + ' ' + C,
+      'stroke-dashoffset': -off * C,
+      transform: 'rotate(-90 ' + cx + ' ' + cy + ')'
+    });
+    svg.appendChild(c);
+    off += frac;
+  });
+  var t1 = svgEl('text', { x: cx, y: cy - 4, 'text-anchor': 'middle', 'font-size': 12, fill: '#8a90a0' });
+  t1.textContent = '净支出';
+  svg.appendChild(t1);
+  var t2 = svgEl('text', { x: cx, y: cy + 16, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700, fill: '#1f2430' });
+  t2.textContent = money(total);
+  svg.appendChild(t2);
+  box.appendChild(svg);
+  arr.forEach(function(x, i){
+    var it = document.createElement('div'); it.className = 'lg-item';
+    var dot = document.createElement('span'); dot.className = 'lg-dot';
+    dot.style.background = PALETTE[i % PALETTE.length];
+    it.appendChild(dot);
+    var nm = document.createElement('span'); nm.className = 'lg-name';
+    nm.textContent = (CAT_ICON[x.cat] || '') + ' ' + x.cat;
+    it.appendChild(nm);
+    var vl = document.createElement('span'); vl.className = 'lg-val'; vl.textContent = money(x.val);
+    it.appendChild(vl);
+    var pc = document.createElement('span'); pc.className = 'lg-pct';
+    pc.textContent = (x.val / total * 100).toFixed(1) + '%';
+    it.appendChild(pc);
+    lg.appendChild(it);
+  });
+}
 function renderTrend(sa, sb){
   var box = document.getElementById('trendBox');
   box.innerHTML = '';
@@ -1348,6 +1413,7 @@ function renderCharts(){
   renderDonut(list);
   renderLine(list, ls, le);
   renderRank(list);
+  renderNetDonut(list);
   var rn = rangeNorm();
   renderTrend(ymOf(rn.a), ymOf(rn.b));
 }
@@ -2187,7 +2253,6 @@ function matchItems(items){
     if(!cands.length){ unmatched.push(it); return; }
     var tx = cands[0];
     used[tx.id] = 1;
-    if(wantDir === 'refund') return;
     var g = it.product ? kwGuess(it.product, tx.dir) : { cat: tx.cat, sure: false };
     matched.push({ tx: tx, item: it, suggest: g.sure ? g.cat : tx.cat, sure: g.sure });
   });
