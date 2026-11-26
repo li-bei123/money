@@ -72,6 +72,16 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .ocr-bar{height:10px;border-radius:999px;background:#eceef4;overflow:hidden}
 .ocr-fill{height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .3s}
 .ocr-text{font-size:13px;color:var(--muted);margin-top:6px}
+/* SECTION: my bills */
+.bill-group{border-top:1px dashed var(--line);padding:8px 0}
+.bill-group:first-child{border-top:none}
+.bill-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.bill-head b{font-size:13px}
+.bill-head .link-btn{border:none;background:none;color:var(--muted);font-size:12px;padding:4px 6px;min-height:28px;cursor:pointer}
+.bill-thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.bill-thumb{width:64px;height:88px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f5f6fa;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.bill-thumb img{width:100%;height:100%;object-fit:cover;object-position:top}
+#billViewer{overflow:auto;align-items:flex-start;padding:14px}
 /* SECTION: preview screen */
 .sms-title{font-size:13px;color:var(--muted);font-weight:600}
 .sms-row{display:flex;gap:8px;font-size:14px;margin-top:7px;align-items:baseline}
@@ -137,6 +147,11 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .tx .m2{font-size:12px;color:var(--muted);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .cat-chip{font-size:11px;background:var(--accent-soft);color:var(--accent);padding:1px 7px;border-radius:999px;white-space:nowrap}
 .tx .amt{font-size:16px;font-weight:700;white-space:nowrap}
+.cum{font-size:12px;color:var(--muted);white-space:nowrap;flex:none;min-width:88px;text-align:right}
+.cum.neg{color:var(--out)}
+.cum.pos{color:var(--in)}
+.cum-final{font-weight:700}
+.cum-legend{font-size:12px;color:var(--muted);padding:2px 4px 8px}
 .tx .amt.out{color:var(--out)}
 .tx .amt.in{color:var(--in)}
 .empty{padding:34px 10px;text-align:center;color:var(--muted);font-size:14px}
@@ -244,6 +259,15 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
             <div class="field wide"><label>商户 / 说明</label><input type="text" id="mMerchant" placeholder="如：楼下早餐店"></div>
           </div>
           <button class="btn block" id="mAddBtn">记一笔</button>
+        </div>
+      </details>
+    </div>
+    <div class="card">
+      <details class="manual" id="billBox">
+        <summary>📁 我的账单 <span id="billSummary" style="font-weight:400;color:var(--muted);font-size:12px"></span></summary>
+        <div style="margin-top:10px">
+          <p class="hint" style="margin-bottom:8px">按上传时间保存在"记账"页传过的截图，点缩略图看大图，随时知道账单传到哪个节点了。图片保存在本机浏览器（云端只同步上传记录，不传图片），换设备能看到记录、看不到图。自动保留最近120张，更早的自动清掉。</p>
+          <div id="billList"></div>
         </div>
       </details>
     </div>
@@ -398,6 +422,11 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   </div>
 </nav>
 
+<!-- SECTION: bill viewer -->
+<div class="modal-mask" id="billViewer" hidden>
+  <img id="billImg" alt="账单截图" style="max-width:min(96vw,720px);border-radius:8px;background:#fff">
+</div>
+
 <!-- SECTION: cloud modal -->
 <div class="modal-mask" id="cloudModal" hidden>
   <div class="modal">
@@ -459,14 +488,14 @@ create policy "board access" on expense_ledger
 
 <div class="toast" id="toast"></div>
 
-<script id="embedded-data" type="application/json">{"savedAt":0,"tx":[],"rules":{}}</script>
+<script id="embedded-data" type="application/json">{"savedAt":0,"tx":[],"rules":{},"uploads":[]}</script>
 <script>
 /* SECTION: state */
 var STORE_KEY = 'expense-helper-v1';
 var CLOUD_STORE = 'expense-helper-cloud-v1';
 var cloud = { url:'', key:'', board:'' };
 var lastChange = 0, pushTimer = null;
-var state = { tx: [], rules: {} };
+var state = { tx: [], rules: {}, uploads: [] };
 var now = new Date();
 var viewY = now.getFullYear(), viewM = now.getMonth();
 var pending = [];
@@ -545,7 +574,7 @@ function dirName(d){ return d === 'expense' ? '支出' : '收入'; }
 
 /* SECTION: storage */
 function persist(){
-  try { localStorage.setItem(STORE_KEY, JSON.stringify({ savedAt: lastChange || Date.now(), tx: state.tx, rules: state.rules })); } catch(e){}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ savedAt: lastChange || Date.now(), tx: state.tx, rules: state.rules, uploads: state.uploads || [] })); } catch(e){}
 }
 function save(){
   lastChange = Date.now();
@@ -559,10 +588,10 @@ function load(){
   var embOk = emb && Array.isArray(emb.tx) && (emb.savedAt > 0 || emb.tx.length > 0);
   var locOk = loc && Array.isArray(loc.tx) && (loc.savedAt > 0 || loc.tx.length > 0);
   if(embOk && locOk){
-    if(emb.savedAt > loc.savedAt){ state.tx = emb.tx; state.rules = emb.rules || {}; lastChange = emb.savedAt; persist(); }
-    else { state.tx = loc.tx; state.rules = loc.rules || {}; lastChange = loc.savedAt; }
-  } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; lastChange = emb.savedAt; persist(); }
-  else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; lastChange = loc.savedAt; }
+    if(emb.savedAt > loc.savedAt){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; lastChange = emb.savedAt; persist(); }
+    else { state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
+  } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; lastChange = emb.savedAt; persist(); }
+  else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
   state.tx.forEach(function(t){ t.channel = normChannel(t.channel); migrateCat(t); t.merchant = cleanMerchant(t.merchant); });
   var nr = {};
   for(var rk in state.rules){ var ck = cleanMerchant(rk); var mv = migrateCatName(state.rules[rk], ''); if(!nr[ck]) nr[ck] = mv; }
@@ -609,7 +638,7 @@ function syncNow(){
   }).then(function(rows){
     var row = rows && rows[0];
     if(row && row.updated_at > lastChange && row.data && Array.isArray(row.data.tx)){
-      state.tx = row.data.tx; state.rules = row.data.rules || {};
+      state.tx = row.data.tx; state.rules = row.data.rules || {}; state.uploads = row.data.uploads || [];
       lastChange = row.updated_at;
       persist(); renderAll();
       setSync('已同步 · 云端更新', 'ok');
@@ -619,7 +648,7 @@ function syncNow(){
       return fetch(base + '/rest/v1/expense_ledger', {
         method: 'POST',
         headers: cloudHeaders({ 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }),
-        body: JSON.stringify({ board: cloud.board, data: { tx: state.tx, rules: state.rules }, updated_at: lastChange })
+        body: JSON.stringify({ board: cloud.board, data: { tx: state.tx, rules: state.rules, uploads: state.uploads || [] }, updated_at: lastChange })
       }).then(function(r){
         if(!r.ok) throw new Error('http ' + r.status);
         setSync('已同步 · ' + new Date().toTimeString().slice(0,5), 'ok');
@@ -975,6 +1004,12 @@ function renderList(){
   var byDay = {};
   list.forEach(function(t){ (byDay[t.date] = byDay[t.date] || []).push(t); });
   var days = Object.keys(byDay).sort().reverse();
+  var flat = list.slice().sort(function(a, b){ return (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')); });
+  var cumMap = {}, run = 0, lastId = flat.length ? flat[flat.length - 1].id : null;
+  flat.forEach(function(t){ run += (t.dir === 'expense' ? -t.amount : t.amount); cumMap[t.id] = run; });
+  var lgd = document.createElement('div'); lgd.className = 'cum-legend';
+  lgd.textContent = '最右列＝累计：按当前筛选结果从上往下逐笔相加（支出减、收入加），最后一行加粗即合计';
+  box.appendChild(lgd);
   var WEEK = ['日','一','二','三','四','五','六'];
   days.forEach(function(d){
     var g = document.createElement('div'); g.className = 'day-group';
@@ -1009,6 +1044,11 @@ function renderList(){
       amt.className = 'amt ' + (t.dir === 'expense' ? 'out' : 'in');
       amt.textContent = (t.dir === 'expense' ? '-' : '+') + money(t.amount);
       row.appendChild(amt);
+      var cv = cumMap[t.id] || 0;
+      var cum = document.createElement('span');
+      cum.className = 'cum ' + (cv < -0.004 ? 'neg' : (cv > 0.004 ? 'pos' : '')) + (t.id === lastId ? ' cum-final' : '');
+      cum.textContent = (cv < -0.004 ? '−' : '+') + money(Math.abs(cv));
+      row.appendChild(cum);
       row.addEventListener('click', function(){ openEdit(t.id); });
       g.appendChild(row);
     });
@@ -1266,7 +1306,7 @@ function renderRules(){
     box.appendChild(it);
   });
 }
-function renderAll(){ renderList(); renderCharts(); renderRules(); }
+function renderAll(){ renderList(); renderCharts(); renderRules(); renderBills(); }
 
 /* SECTION: edit modal */
 function openEdit(id){
@@ -1311,7 +1351,7 @@ function deleteEdit(){
 
 /* SECTION: backup */
 function exportBackup(){
-  var payload = { app: '记账小助手', version: 1, exportedAt: new Date().toISOString(), tx: state.tx, rules: state.rules };
+  var payload = { app: '记账小助手', version: 1, exportedAt: new Date().toISOString(), tx: state.tx, rules: state.rules, uploads: state.uploads || [] };
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1330,11 +1370,168 @@ function importBackup(file){
       if(!confirm('导入将替换当前全部记录（共 ' + data.tx.length + ' 笔），确定继续？')) return;
       state.tx = data.tx;
       state.rules = data.rules || {};
+      if(Array.isArray(data.uploads)) state.uploads = data.uploads;
       save(); renderAll(); toast('导入成功，共 ' + data.tx.length + ' 笔');
     } catch(e){ toast('文件格式不对，导入失败'); }
   };
   reader.readAsText(file);
 }
+
+/* SECTION: my bills */
+var BILL_MAX = 120;
+function billGroupLabel(ts){
+  var d = new Date(ts);
+  return pad(d.getFullYear() % 100) + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function idbDel(k){
+  idbOpen().then(function(db){
+    try { db.transaction('keyval', 'readwrite').objectStore('keyval').delete(k); } catch(e){}
+  }).catch(function(){});
+}
+function clearBillImages(){
+  if(!window.indexedDB) return;
+  idbOpen().then(function(db){
+    try {
+      var st = db.transaction('keyval', 'readwrite').objectStore('keyval');
+      var req = st.openCursor();
+      req.onsuccess = function(){
+        var c = req.result;
+        if(c){
+          var k = String(c.key);
+          if(k.indexOf('billimg-') === 0 || k.indexOf('billthumb-') === 0) c.delete();
+          c.continue();
+        }
+      };
+    } catch(e){}
+  }).catch(function(){});
+}
+function trimBills(){
+  var total = 0;
+  state.uploads.forEach(function(b){ total += b.count; });
+  while(state.uploads.length && (state.uploads.length > 60 || total > BILL_MAX)){
+    var oldB = state.uploads.pop();
+    total -= oldB.count;
+    for(var i = 0; i < oldB.count; i++){ idbDel('billimg-' + oldB.id + '-' + i); idbDel('billthumb-' + oldB.id + '-' + i); }
+  }
+}
+function compressBill(file, key){
+  var load;
+  if(window.createImageBitmap) load = createImageBitmap(file);
+  else load = new Promise(function(res, rej){
+    var img = new Image();
+    img.onload = function(){ res(img); };
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+  return load.then(function(bmp){
+    var w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+    var scale = Math.min(1, 1000 / w, 12000 / h);
+    var sw = Math.max(1, Math.round(w * scale)), sh = Math.max(1, Math.round(h * scale));
+    var cv = document.createElement('canvas'); cv.width = sw; cv.height = sh;
+    cv.getContext('2d').drawImage(bmp, 0, 0, w, h, 0, 0, sw, sh);
+    if(bmp.close) bmp.close();
+    return new Promise(function(res){
+      cv.toBlob(function(b){
+        if(b) idbSet('billimg-' + key, b).then(res, res);
+        else res();
+      }, 'image/jpeg', 0.72);
+      var cropH = Math.min(sh, Math.round(sw * 1.6));
+      var cv2 = document.createElement('canvas');
+      cv2.width = 160; cv2.height = Math.max(1, Math.round(cropH * 160 / sw));
+      cv2.getContext('2d').drawImage(cv, 0, 0, sw, cropH, 0, 0, cv2.width, cv2.height);
+      idbSet('billthumb-' + key, cv2.toDataURL('image/jpeg', 0.55));
+    });
+  });
+}
+function saveBills(files){
+  if(!window.indexedDB) return;
+  var batch = { id: uid(), ts: Date.now(), names: files.map(function(f){ return f.name || '截图'; }), count: files.length };
+  if(!Array.isArray(state.uploads)) state.uploads = [];
+  state.uploads.unshift(batch);
+  trimBills();
+  save();
+  files.forEach(function(f, i){
+    compressBill(f, batch.id + '-' + i).then(function(){ renderBills(); }).catch(function(){});
+  });
+  renderBills();
+}
+function openBillViewer(key){
+  idbGet('billimg-' + key).then(function(blob){
+    if(!blob){ toast('这张图保存在当时上传的设备上，本机没有'); return; }
+    var url = URL.createObjectURL(blob);
+    var v = document.getElementById('billViewer');
+    document.getElementById('billImg').src = url;
+    v._url = url;
+    v.hidden = false;
+  }).catch(function(){ toast('图片读取失败'); });
+}
+function closeBillViewer(){
+  var v = document.getElementById('billViewer');
+  v.hidden = true;
+  if(v._url){ URL.revokeObjectURL(v._url); v._url = null; }
+  document.getElementById('billImg').removeAttribute('src');
+}
+function deleteBatch(batchId){
+  var b = null;
+  (state.uploads || []).forEach(function(x){ if(x.id === batchId) b = x; });
+  if(!b) return;
+  if(!confirm('删除 ' + billGroupLabel(b.ts) + ' 上传的 ' + b.count + ' 张截图记录？已入账的数据不受影响。')) return;
+  state.uploads = state.uploads.filter(function(x){ return x.id !== batchId; });
+  for(var i = 0; i < b.count; i++){ idbDel('billimg-' + b.id + '-' + i); idbDel('billthumb-' + b.id + '-' + i); }
+  save(); renderBills();
+}
+function renderBills(){
+  var wrap = document.getElementById('billList');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  var ups = state.uploads || [];
+  var totalImgs = 0;
+  ups.forEach(function(b){ totalImgs += b.count; });
+  var sum = document.getElementById('billSummary');
+  if(sum) sum.textContent = ups.length ? '（' + ups.length + ' 次上传 · ' + totalImgs + ' 张）' : '';
+  if(!ups.length){
+    var e = document.createElement('div'); e.className = 'parse-empty';
+    e.textContent = '还没有上传记录；在上方传账单截图后，这里会按时间自动存档';
+    wrap.appendChild(e);
+    return;
+  }
+  ups.forEach(function(b){
+    var g = document.createElement('div'); g.className = 'bill-group';
+    var gh = document.createElement('div'); gh.className = 'bill-head';
+    var gt = document.createElement('b');
+    gt.textContent = billGroupLabel(b.ts) + ' 上传 · ' + b.count + ' 张';
+    gh.appendChild(gt);
+    var del = document.createElement('button'); del.className = 'link-btn'; del.textContent = '删除';
+    del.addEventListener('click', function(){ deleteBatch(b.id); });
+    gh.appendChild(del);
+    g.appendChild(gh);
+    var row = document.createElement('div'); row.className = 'bill-thumbs';
+    for(var i = 0; i < b.count; i++){
+      (function(idx){
+        var key = b.id + '-' + idx;
+        var cell = document.createElement('div'); cell.className = 'bill-thumb';
+        var ph = document.createElement('span'); ph.textContent = '🖼';
+        cell.appendChild(ph);
+        idbGet('billthumb-' + key).then(function(durl){
+          if(durl){
+            while(cell.firstChild) cell.removeChild(cell.firstChild);
+            var im = document.createElement('img');
+            im.alt = (b.names && b.names[idx]) || '截图';
+            im.src = durl;
+            cell.appendChild(im);
+          }
+        }).catch(function(){});
+        cell.addEventListener('click', function(){ openBillViewer(key); });
+        row.appendChild(cell);
+      })(i);
+    }
+    g.appendChild(row);
+    wrap.appendChild(g);
+  });
+}
+document.getElementById('billViewer').addEventListener('click', function(e){
+  if(e.target === this) closeBillViewer();
+});
 
 /* SECTION: ocr engine */
 var OCR_SOURCES = [
@@ -1583,6 +1780,7 @@ function runOcr(files){
   if(ocrBusy){ toast('正在识别中，请稍候'); return; }
   ocrBusy = true; ocrDone = 0; ocrTotal = 0;
   lastOcrFiles = files;
+  saveBills(files);
   setOcrProgress(0, '准备识别…');
   var fullText = '', jobs = [];
   getOcrWorker().then(function(worker){
@@ -2076,7 +2274,8 @@ document.getElementById('dedupeBtn').addEventListener('click', function(){
 document.getElementById('resetBtn').addEventListener('click', function(){
   if(!confirm('确定清空全部记账数据吗？建议先导出备份。')) return;
   if(!confirm('再确认一次：清空后无法恢复（云端也会同步清空）。继续？')) return;
-  state.tx = []; state.rules = {};
+  state.tx = []; state.rules = {}; state.uploads = [];
+  clearBillImages();
   save(); renderAll(); toast('已清空');
 });
 
