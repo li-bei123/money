@@ -136,6 +136,18 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .f-item input,.f-item select{border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;background:#fafbfe;min-height:36px;font-size:13px;width:100%}
 .filter-row2{display:flex;justify-content:flex-end;margin-top:8px}
 .filter-row2 .btn{min-height:36px;padding:6px 22px;font-size:14px}
+.month-pick{margin-bottom:10px;max-width:200px}
+/* SECTION: cat picker */
+.cat-dd{position:relative;flex:1;min-width:0}
+.cat-dd-btn{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;background:#fafbfe;min-height:40px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:6px;cursor:pointer;color:var(--text)}
+.cat-dd-btn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-dd-pop{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(30,40,90,.15);z-index:70;padding:3px;display:flex;gap:3px;align-items:flex-start}
+.cat-dd-col1{max-height:min(70vh,480px);overflow-y:auto;min-width:104px}
+.cat-dd-col2{display:none;border-left:1px solid var(--line);padding-left:3px;min-width:96px}
+.cat-dd-item{padding:2px 8px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;line-height:1.6}
+.cat-dd-item:hover{background:var(--accent-soft)}
+.cat-dd-item.selected{color:var(--accent);font-weight:700}
+.cat-dd-item.sub{font-size:12px;padding:2px 8px}
 .trend-filter{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
 .trend-filter .f-item{flex:1;min-width:110px}
 .trend-filter .btn{min-height:36px;padding:6px 16px;font-size:13px;flex:none}
@@ -225,7 +237,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel active" id="panel-record">
     <div class="card">
       <h2>📷 上传短信截图，自动识别</h2>
-      <p class="hint">支持长截图、一次选多张。识别全程在你手机本地完成，图片不会上传。"朝朝宝自动转入"这类卡内理财互转自动忽略、不入账；与账本已有记录"时间＋方式＋内容＋金额"四要素相同的会自动跳过不重复记；想用哪部分算账，去"明细"页用筛选条件选。首次识别会自动下载语言包（约7MB，建议WiFi），下载一次后永久缓存、秒开。</p>
+      <p class="hint">支持长截图、一次选多张。识别全程在你手机本地完成，图片不会上传。"朝朝宝自动转入"这类卡内理财互转和"工资入账"自动忽略、不入账；与账本已有记录"时间＋方式＋内容＋金额"四要素相同的会自动跳过不重复记；想用哪部分算账，去"明细"页用筛选条件选。首次识别会自动下载语言包（约7MB，建议WiFi），下载一次后永久缓存、秒开。</p>
       <div class="upload-zone" id="uploadZone">
         <span class="uz-ico">🖼️</span>
         <span class="uz-t">点击选择短信截图</span>
@@ -258,7 +270,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
             <div class="field"><label>日期</label><input type="date" id="mDate"></div>
             <div class="field"><label>金额（元）</label><input type="number" id="mAmount" step="0.01" min="0" inputmode="decimal" placeholder="0.00"></div>
             <div class="field"><label>类型</label><select id="mDir"><option value="expense">支出</option><option value="income">收入</option><option value="refund">退款</option></select></div>
-            <div class="field"><label>标签</label><select id="mCat"></select></div>
+            <div class="field"><label>标签</label><div id="mCatHost" style="display:flex"></div></div>
             <div class="field wide"><label>商户 / 说明</label><input type="text" id="mMerchant" placeholder="如：楼下早餐店"></div>
           </div>
           <button class="btn block" id="mAddBtn">记一笔</button>
@@ -280,11 +292,14 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel" id="panel-list">
     <div class="card filter-card">
       <div class="filter-head"><b>筛选</b><button class="link-btn" id="fClear">清除筛选</button></div>
+      <div class="month-pick">
+        <label class="f-item">筛选月份<input type="month" id="fMonth"></label>
+      </div>
       <div class="filter-row">
         <label class="f-item">开始日期<input type="date" id="fStart"></label>
         <label class="f-item">结束日期<input type="date" id="fEnd"></label>
         <label class="f-item">分类<select id="fDir"><option value="all">全部</option><option value="expense">支出</option><option value="income">收入</option></select></label>
-        <label class="f-item">标签<select id="fCat"></select></label>
+        <div class="f-item">标签<div id="fCatHost" style="display:flex"></div></div>
         <label class="f-item">支付平台<select id="fPlat"></select></label>
       </div>
       <div class="filter-row2">
@@ -322,7 +337,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
         <div class="donut-box chart-wrap" id="donutBox"></div>
         <div class="legend" id="donutLegend"></div>
       </div>
-      <p class="chart-note">标签共23个；红色−记为支出、绿色＋记为收入，占比图按支出笔的标签统计。</p>
+      <p class="chart-note">标签共18个；红色−记为支出、绿色＋记为收入，占比图按支出笔的标签统计。</p>
     </div>
     <div class="chart-card">
       <h3>📈 每日支出走势</h3>
@@ -483,7 +498,7 @@ create policy "board access" on expense_ledger
       <div class="field"><label>时间</label><input type="time" id="eTime"></div>
       <div class="field"><label>金额（元）</label><input type="number" id="eAmount" step="0.01" min="0" inputmode="decimal"></div>
       <div class="field"><label>类型</label><select id="eDir"><option value="expense">支出</option><option value="income">收入</option><option value="refund">退款</option></select></div>
-      <div class="field wide"><label>标签</label><select id="eCat"></select></div>
+      <div class="field wide"><label>标签</label><div id="eCatHost" style="display:flex"></div></div>
       <div class="field wide"><label>商户 / 说明</label><input type="text" id="eMerchant"></div>
     </div>
     <div class="modal-row">
@@ -522,25 +537,20 @@ var CATS = [
   {id:'孩子玩具',icon:'🧸'},
   {id:'孩子学习',icon:'✏️'},
   {id:'孩子饮食',icon:'🍼'},
-  {id:'转账',icon:'🔁'},
-  {id:'还款',icon:'💳'},
   {id:'退货',icon:'🔄'},
   {id:'凑单',icon:'🧺'},
-  {id:'工资',icon:'💼'},
-  {id:'居住缴费',icon:'🏠'},
   {id:'娱乐休闲',icon:'🎬'},
   {id:'医疗健康',icon:'💊'},
   {id:'教育学习',icon:'📚'},
   {id:'订阅会员',icon:'📺'},
   {id:'美容养生',icon:'💆'},
   {id:'保险',icon:'🛡️'},
-  {id:'人情往来',icon:'🧧'},
   {id:'其他',icon:'📦'}
 ];
 var CAT_ICON = {}; CATS.forEach(function(c){ CAT_ICON[c.id] = c.icon; });
 function migrateCatName(c, merchant){
-  if(c === '转账还款') return /朝朝宝|朝朝盈|理财|基金/.test(merchant || '') ? '转账' : '还款';
-  var m = {'餐饮食品':'饮食','交通出行':'交通','其他支出':'其他','其他收入':'其他','退货收入':'退货','工资收入':'工资','购物':'其他'};
+  if(c === '转账还款') return '其他';
+  var m = {'餐饮食品':'饮食','交通出行':'交通','其他支出':'其他','其他收入':'其他','退货收入':'退货','工资收入':'工资','工资':'工资','购物':'其他'};
   if(m[c]) return m[c];
   for(var i = 0; i < CATS.length; i++){ if(CATS[i].id === c) return c; }
   return '其他';
@@ -553,7 +563,6 @@ var PALETTE = ['#4f6ef7','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4
 
 /* SECTION: keywords */
 var KEYWORDS = [
-  ['工资',['工资','代发','奖金','薪酬']],
   ['孩子服饰',['童装','女童','男童','儿童','婴幼儿','婴儿','学步鞋','公主鞋','童鞋','宝宝','母婴','牧童','童']],
   ['孩子家居',['婴儿床','儿童床','床围','爬行垫','餐椅','儿童餐具','睡袋','纸尿裤','尿不湿','拉拉裤','安抚']],
   ['孩子玩具',['玩具','积木','拼图','玩偶','公仔','乐高','磁力片','芭比','遥控']],
@@ -563,16 +572,12 @@ var KEYWORDS = [
   ['家居生活',['家居','家具','家纺','床品','厨具','餐具','收纳','日用','餐具','托盘','烤箱','保鲜','水杯','宜家','无印良品','软装','灯具','日用品','纸品','陶瓷','瓷','景德镇','四件套','窗帘','消毒液','滴露','纸巾','心相印','个护','洗衣','沐浴','洗发']],
   ['饮食',['盒马','美团','饿了么','麦当劳','肯德基','星巴克','瑞幸','餐饮','餐厅','饭店','食堂','超市','买菜','叮咚','朴朴','永辉','沃尔玛','家乐福','便利蜂','罗森','全家','蜜雪','喜茶','海底捞','必胜客','外卖','食品','七鲜','山姆','Costco','麦德龙','米饭','面','面包','牛奶','零食','茶饮','咖啡','烧烤','火锅','代金券','锅鱼','蹄花','牛肉','芭乐','烤','餐','牦牛','水果','蔬菜','锅底']],
   ['交通',['滴滴','地铁','公交','加油','停车','12306','铁路','机票','航空','打车','高德','曹操','哈啰','青桔','单车','高速','出行']],
-  ['居住缴费',['水费','电费','燃气','物业','房租','宽带','话费','供暖','热力','自来水','电力']],
   ['娱乐休闲',['电影','影院','游戏','KTV','旅游','门票','景区','剧本杀','演出','大麦','网吧','红叶','坡峰岭']],
   ['医疗健康',['医院','药房','药店','体检','诊所','卫生']],
   ['教育学习',['学费','书店','课程','培训','教育']],
   ['订阅会员',['会员','订阅','爱奇艺','腾讯视频','优酷','哔哩哔哩','网易云','QQ音乐','云盘','网盘']],
   ['美容养生',['美容','护肤','面膜','水光','胶原','百雀羚','丸美','可丽金','HBN','精华','口红','彩妆','香水','美甲','美发','理发','养发','养生','按摩','足疗','SPA','眼周呵护','身体护理','洗牙','美妆']],
   ['保险',['保险','保费','人寿','车险','泰康','平安保险','太平洋保险','新华保险','众安']],
-  ['还款',['还款','信用卡','花呗','白条','借呗']],
-  ['转账',['朝朝宝','朝朝盈','理财','基金','转账']],
-  ['人情往来',['红包','礼金']]
 ];function pad(n){ return n < 10 ? '0' + n : '' + n; }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function money(n){ return (Math.round(n*100)/100).toFixed(2); }
@@ -583,14 +588,6 @@ function toast(msg){
   var el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove('show'); }, 2400);
-}
-function catOptions(sel, dir){
-  sel.innerHTML = '';
-  CATS.forEach(function(c){
-    var o = document.createElement('option');
-    o.value = c.id; o.textContent = c.icon + ' ' + c.id;
-    sel.appendChild(o);
-  });
 }
 function dirName(d){ return d === 'expense' ? '支出' : '收入'; }
 
@@ -632,11 +629,11 @@ function load(){
     }
   });
   var purged = state.tx.length;
-  state.tx = state.tx.filter(function(t){ return !/朝朝宝|朝朝盈/.test(t.merchant || ''); });
+  state.tx = state.tx.filter(function(t){ return !/朝朝宝|朝朝盈/.test(t.merchant || '') && t.cat !== '工资'; });
   purged -= state.tx.length;
   if(purged > 0){
     save();
-    setTimeout(function(){ toast('已按规则忽略并删除 ' + purged + ' 笔朝朝宝类内部转账（不算支出）'); }, 400);
+    setTimeout(function(){ toast('已按规则忽略并删除 ' + purged + ' 笔朝朝宝/工资类记录'); }, 400);
   }
 }
 
@@ -743,6 +740,9 @@ function normPlatform(c){
 function isIgnoredXfer(typeStr){
   return /朝朝宝|朝朝盈/.test(normText(typeStr));
 }
+function isIgnoredSalary(typeStr){
+  return /工资|代发|奖金|薪酬/.test(normText(typeStr));
+}
 function cleanMerchant(m){
   m = m || '';
   var toks = ['快捷支付', '交易类型', '父', '95555'];
@@ -770,7 +770,6 @@ function buildTx(amount, mon, day, hh, mm, typeStr, tail){
   var dir = inferDir(typeStr);
   var sm = splitMerchant(typeStr);
   var g = guessCat(sm.merchant, dir === 'refund' ? 'expense' : dir);
-  if(dir === 'income' && /工资|代发|奖金|薪酬/.test(normText(typeStr))) g = { cat:'工资', sure:true };
   if(dir === 'refund') g = { cat:'退货', sure:true };
   if(/朝朝宝|朝朝盈|理财|基金/.test(normText(typeStr))){ dir = 'expense'; g = { cat:'转账', sure:true }; }
   return {
@@ -782,6 +781,7 @@ function buildTx(amount, mon, day, hh, mm, typeStr, tail){
 }
 function pickAmount(seg){
   var m = seg.match(/金额[^0-9]{0,20}([0-9][0-9,]*\.[0-9]{1,2})/);
+  if(!m) m = seg.match(/金额[^0-9]{0,8}([0-9][0-9,]*)\s*[元克]/);
   if(!m) return 0;
   var v = parseFloat(m[1].replace(/,/g, ''));
   return v > 0 ? v : 0;
@@ -793,7 +793,7 @@ function extractField(seg){
   if(!tm) return null;
   var ty = seg.match(/交易(?:类型|动向)\s*([\s\S]*?)(?=交易时间|尾[号己与亏忆]|金额|账号|【|$)/);
   if(!ty) ty = seg.match(/(?:类型|动向)\s*([\s\S]*?)(?=交易时间|尾[号己与亏忆]|金额|账号|【|$)/);
-  if(ty && isIgnoredXfer(ty[1])) return null;
+  if(ty && (isIgnoredXfer(ty[1]) || isIgnoredSalary(ty[1]))) return null;
   var typeStr;
   if(ty){ typeStr = cleanType(ty[1]); }
   else {
@@ -811,7 +811,7 @@ function extractRaw(seg){
   var tm = seg.match(/(\d{1,2})月(\d{1,2})日\s*(\d{1,2})[:：](\d{2})/);
   if(!tm) return null;
   var clean = cleanType(seg);
-  if(isIgnoredXfer(clean)) return null;
+  if(isIgnoredXfer(clean) || isIgnoredSalary(clean)) return null;
   var rich = clean.match(/在(.+?)(快捷支付|退款|消费|扣款|支付)([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
   var amount, typeStr;
   if(rich){
@@ -938,12 +938,9 @@ function renderPreview(){
     var r5 = document.createElement('div'); r5.className = 'sms-row';
     var k5 = document.createElement('span'); k5.className = 'sms-k'; k5.textContent = '标签';
     r5.appendChild(k5);
-    var sel = document.createElement('select');
-    catOptions(sel, t.dir);
-    sel.value = t.cat;
-    sel.disabled = t._dup;
-    sel.addEventListener('change', function(){ t.cat = sel.value; t._sure = true; var ab2 = item.querySelector('.badge.attn'); if(ab2) ab2.remove(); });
-    r5.appendChild(sel);
+    var pick = createCatPicker(t.cat, function(v){ t.cat = v; t._sure = true; var ab2 = item.querySelector('.badge.attn'); if(ab2) ab2.remove(); });
+    if(t._dup){ pick.el.style.opacity = '0.55'; pick.el.style.pointerEvents = 'none'; }
+    r5.appendChild(pick.el);
     item.appendChild(r5);
     box.appendChild(item);
   });
@@ -1388,9 +1385,7 @@ function openEdit(id){
   document.getElementById('eTime').value = t.time || '';
   document.getElementById('eAmount').value = t.amount;
   document.getElementById('eDir').value = t.dir;
-  var sel = document.getElementById('eCat');
-  catOptions(sel, t.dir);
-  sel.value = t.cat;
+  eCatPicker.set(t.cat);
   document.getElementById('eMerchant').value = t.merchant;
   document.getElementById('editMsg').textContent = '';
   document.getElementById('editModal').hidden = false;
@@ -1402,7 +1397,7 @@ function saveEdit(){
   var amt = parseFloat(document.getElementById('eAmount').value);
   var date = document.getElementById('eDate').value;
   if(!(amt > 0) || !date){ document.getElementById('editMsg').textContent = '请填写正确的日期和金额'; return; }
-  var newCat = document.getElementById('eCat').value;
+  var newCat = eCatPicker.get();
   var newMer = document.getElementById('eMerchant').value.trim() || t.merchant;
   if(newCat !== t.cat && newMer) state.rules[newMer] = newCat;
   t.date = date;
@@ -1940,16 +1935,116 @@ document.getElementById('ocrRetryBtn').addEventListener('click', function(){
   if(lastOcrFiles && lastOcrFiles.length) runOcr(lastOcrFiles);
 });
 
+/* SECTION: month pick */
+function syncMonthInput(){
+  var el = document.getElementById('fMonth');
+  if(!el) return;
+  var a = fDraft.start, b = fDraft.end;
+  if(a && b && a.slice(0, 7) === b.slice(0, 7) && a.slice(8, 10) === '01'){
+    var y = +a.slice(0, 4), m = +a.slice(5, 7);
+    if(b.slice(8, 10) === pad(new Date(y, m, 0).getDate())){ el.value = a.slice(0, 7); return; }
+  }
+  el.value = '';
+}
+
+/* SECTION: cat picker */
+var CAT_GROUP = { label: '孩子', icon: '🧒', items: ['孩子服饰', '孩子家居', '孩子玩具', '孩子学习', '孩子饮食'] };
+var CAT_ORDER = ['饮食', '交通', '服饰鞋帽', '家居生活', 'GROUP', '退货', '凑单', '娱乐休闲', '医疗健康', '教育学习', '订阅会员', '美容养生', '保险', '其他'];
+function createCatPicker(initial, onChange, extraOpts){
+  var value = initial || '其他';
+  var labels = {};
+  (extraOpts || []).forEach(function(o){ labels[o.value] = o.label; });
+  var wrap = document.createElement('div'); wrap.className = 'cat-dd';
+  var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'cat-dd-btn';
+  var lbl = document.createElement('span');
+  var arrow = document.createElement('span'); arrow.textContent = '▾';
+  btn.appendChild(lbl); btn.appendChild(arrow);
+  var pop = document.createElement('div'); pop.className = 'cat-dd-pop'; pop.hidden = true;
+  var col1 = document.createElement('div'); col1.className = 'cat-dd-col1';
+  var col2 = document.createElement('div'); col2.className = 'cat-dd-col2';
+  pop.appendChild(col1); pop.appendChild(col2);
+  function catLabel(c){ return labels[c] || ((CAT_ICON[c] || '') + ' ' + c); }
+  function pick(v){
+    value = v;
+    refresh();
+    pop.hidden = true;
+    col2.style.display = 'none';
+    if(onChange) onChange(v);
+  }
+  function makeItem(text, val, cls, host){
+    var it = document.createElement('div');
+    it.className = 'cat-dd-item' + (cls ? ' ' + cls : '');
+    it.textContent = text;
+    it.dataset.val = val;
+    it.addEventListener('click', function(ev){ ev.stopPropagation(); pick(val); });
+    host.appendChild(it);
+    return it;
+  }
+  (extraOpts || []).forEach(function(o){ makeItem(o.label, o.value, '', col1); });
+  CAT_ORDER.forEach(function(entry){
+    if(entry === 'GROUP'){
+      var gh = document.createElement('div'); gh.className = 'cat-dd-item';
+      gh.textContent = CAT_GROUP.icon + ' ' + CAT_GROUP.label + ' ▸';
+      gh.addEventListener('mouseenter', function(){ col2.style.display = 'block'; });
+      gh.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        col2.style.display = col2.style.display === 'block' ? 'none' : 'block';
+      });
+      col1.appendChild(gh);
+      CAT_GROUP.items.forEach(function(c){ makeItem((CAT_ICON[c] || '') + ' ' + c, c, 'sub', col2); });
+    } else {
+      makeItem(catLabel(entry), entry, '', col1);
+    }
+  });
+  col2.addEventListener('mouseleave', function(){ col2.style.display = 'none'; });
+  pop.addEventListener('mouseleave', function(){ col2.style.display = 'none'; });
+  function refresh(){
+    lbl.textContent = catLabel(value);
+    var items = pop.querySelectorAll('.cat-dd-item[data-val]');
+    Array.prototype.forEach.call(items, function(it){
+      it.classList.toggle('selected', it.dataset.val === value);
+    });
+  }
+  btn.addEventListener('click', function(ev){
+    ev.stopPropagation();
+    var willOpen = pop.hidden;
+    closeAllCatPickers();
+    pop.hidden = !willOpen;
+    refresh();
+  });
+  wrap.appendChild(btn); wrap.appendChild(pop);
+  refresh();
+  return { el: wrap, set: function(v){ value = v || '其他'; refresh(); }, get: function(){ return value; } };
+}
+function closeAllCatPickers(){
+  Array.prototype.forEach.call(document.querySelectorAll('.cat-dd-pop'), function(p){ p.hidden = true; });
+  Array.prototype.forEach.call(document.querySelectorAll('.cat-dd-col2'), function(c){ c.style.display = 'none'; });
+}
+document.addEventListener('click', closeAllCatPickers);
+var fCatPicker = createCatPicker('all', function(v){ fDraft.cat = v; }, [{ value: 'all', label: '🗂 全部标签' }]);
+document.getElementById('fCatHost').appendChild(fCatPicker.el);
+var mCatPicker = createCatPicker('饮食', null);
+document.getElementById('mCatHost').appendChild(mCatPicker.el);
+var eCatPicker = createCatPicker('其他', null);
+document.getElementById('eCatHost').appendChild(eCatPicker.el);
+
 /* SECTION: filter events */
-(function(){
-  var sel = document.getElementById('fCat');
-  var o0 = document.createElement('option'); o0.value = 'all'; o0.textContent = '全部标签'; sel.appendChild(o0);
-  CATS.forEach(function(c){ var o = document.createElement('option'); o.value = c.id; o.textContent = c.icon + ' ' + c.id; sel.appendChild(o); });
-})();
-document.getElementById('fStart').addEventListener('change', function(){ fDraft.start = this.value; });
-document.getElementById('fEnd').addEventListener('change', function(){ fDraft.end = this.value; });
+document.getElementById('fStart').addEventListener('change', function(){ fDraft.start = this.value; syncMonthInput(); });
+document.getElementById('fEnd').addEventListener('change', function(){ fDraft.end = this.value; syncMonthInput(); });
+document.getElementById('fMonth').addEventListener('change', function(){
+  var v = this.value;
+  if(!v) return;
+  var y = +v.slice(0, 4), m = +v.slice(5, 7) - 1;
+  var startK = v + '-01';
+  var endK = v + '-' + pad(new Date(y, m + 1, 0).getDate());
+  fDraft.start = startK; fDraft.end = endK;
+  fState.start = startK; fState.end = endK;
+  document.getElementById('fStart').value = startK;
+  document.getElementById('fEnd').value = endK;
+  renderList();
+  renderCharts();
+});
 document.getElementById('fDir').addEventListener('change', function(){ fDraft.dir = this.value; });
-document.getElementById('fCat').addEventListener('change', function(){ fDraft.cat = this.value; });
 document.getElementById('fPlat').addEventListener('change', function(){ fDraft.plat = this.value; });
 document.getElementById('fApply').addEventListener('click', function(){
   fState = { start: fDraft.start, end: fDraft.end, dir: fDraft.dir, cat: fDraft.cat, plat: fDraft.plat };
@@ -1962,8 +2057,9 @@ document.getElementById('fClear').addEventListener('click', function(){
   document.getElementById('fStart').value = '';
   document.getElementById('fEnd').value = '';
   document.getElementById('fDir').value = 'all';
-  document.getElementById('fCat').value = 'all';
+  fCatPicker.set('all');
   document.getElementById('fPlat').value = 'all';
+  document.getElementById('fMonth').value = '';
   renderList();
   renderCharts();
 });
@@ -2262,9 +2358,6 @@ document.getElementById('selNoneBtn').addEventListener('click', function(){
   updateConfirmCount();
 });
 document.getElementById('confirmBtn').addEventListener('click', confirmParse);
-document.getElementById('mDir').addEventListener('change', function(){
-  catOptions(document.getElementById('mCat'), this.value);
-});
 document.getElementById('mAddBtn').addEventListener('click', function(){
   var amt = parseFloat(document.getElementById('mAmount').value);
   var date = document.getElementById('mDate').value;
@@ -2275,16 +2368,13 @@ document.getElementById('mAddBtn').addEventListener('click', function(){
     amount: Math.round(amt * 100) / 100,
     dir: document.getElementById('mDir').value,
     channel: '', merchant: mer,
-    cat: document.getElementById('mCat').value, note: ''
+    cat: mCatPicker.get(), note: ''
   };
   state.tx.push(t);
   save(); renderAll();
   document.getElementById('mAmount').value = '';
   document.getElementById('mMerchant').value = '';
   toast('已记一笔'); switchTab('list');
-});
-document.getElementById('eDir').addEventListener('change', function(){
-  catOptions(document.getElementById('eCat'), this.value);
 });
 document.getElementById('eSaveBtn').addEventListener('click', saveEdit);
 document.getElementById('eDeleteBtn').addEventListener('click', deleteEdit);
@@ -2366,9 +2456,9 @@ document.getElementById('resetBtn').addEventListener('click', function(){
 loadCloud();
 load();
 document.getElementById('mDate').value = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-catOptions(document.getElementById('mCat'), 'expense');
 document.getElementById('cfStart').value = cfDraft.start;
 document.getElementById('cfEnd').value = cfDraft.end;
+syncMonthInput();
 renderAll();
 syncNow();
 setInterval(syncNow, 60000);
