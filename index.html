@@ -730,14 +730,14 @@ function normChannel(c){ return (c || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, 
 function normPlatform(c){
   var t = normChannel(c);
   if(!t) return '';
-  if(/抖音|拌音|抖言|抖意/.test(t)) return '抖音';
+  if(/抖音|拌音|拉音|抖言|抖意/.test(t)) return '抖音';
   if(/支付宝|支村宝|支何宝|文付宝/.test(t)) return '支付宝';
   if(/财付通|微信/.test(t)) return '微信';
   if(/拼多多/.test(t)) return '拼多多';
   if(/京东/.test(t)) return '京东';
   if(/华为/.test(t)) return '华为支付';
   if(/银联/.test(t)) return '银联';
-  return t;
+  return '';
 }
 function isIgnoredXfer(typeStr){
   return /朝朝宝|朝朝盈/.test(normText(typeStr));
@@ -1007,14 +1007,13 @@ function displayList(){
   arr.sort(function(a, b){ return (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')); });
   return arr;
 }
+var PLATFORMS = ['抖音', '支付宝', '微信', '拼多多', '京东', '华为支付', '银联'];
 function refreshPlatOptions(){
   var sel = document.getElementById('fPlat');
-  var chans = {};
-  state.tx.forEach(function(t){ var c = normPlatform(t.channel); if(c) chans[c] = 1; });
   var cur = fDraft.plat;
   sel.innerHTML = '';
   var o0 = document.createElement('option'); o0.value = 'all'; o0.textContent = '全部平台'; sel.appendChild(o0);
-  Object.keys(chans).sort().forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  PLATFORMS.forEach(function(c){ var o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
   var on = document.createElement('option'); on.value = 'none'; on.textContent = '无平台（手动记的）'; sel.appendChild(on);
   sel.value = cur;
   if(sel.value !== cur){ sel.value = 'all'; fDraft.plat = 'all'; }
