@@ -73,6 +73,9 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .ocr-fill{height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .3s}
 .ocr-text{font-size:13px;color:var(--muted);margin-top:6px}
 /* SECTION: my bills */
+.log-item{border-top:1px dashed var(--line);padding:6px 0}
+.log-item summary{cursor:pointer;font-size:13px;font-weight:600;min-height:28px}
+.log-body{padding:4px 0 2px}
 .bill-group{border-top:1px dashed var(--line);padding:8px 0}
 .bill-group:first-child{border-top:none}
 .bill-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
@@ -374,7 +377,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel" id="panel-correct">
     <div class="card">
       <h2>🏷️ 标签校正（选做）</h2>
-      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。只细化退货笔的标签（如童装退款→孩子服饰、女装退款→服饰鞋帽），商品名看不出类别的保持"退货"；支出笔的标签一律不动，完全尊重你手工改好的结果。不传也不影响正常记账。</p>
+      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。支出笔和退货笔的标签都按商品名同步细化（如童装→孩子服饰、女裤→服饰鞋帽、护肤品→美容养生），商品名看不出类别的保持原样不动。不传也不影响正常记账。</p>
       <div class="upload-zone" id="cUploadZone">
         <span class="uz-ico">🧾</span>
         <span class="uz-t">点击选择平台截图</span>
@@ -388,9 +391,14 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
     </div>
     <div class="card" id="cResultCard" hidden>
       <h2>校正结果 <span id="cCount" style="font-size:12px;color:var(--muted);font-weight:400"></span></h2>
-      <p class="hint">已自动细化退货笔的标签，下面列出改动明细供复查；支出笔未做任何改动。改错的可在明细页点那笔改回。</p>
+      <p class="hint">已自动按商品名细化标签（支出和退货都改），下面列出改动明细供复查；改错的可在明细页点那笔改回（改回后会记住你的选择）。</p>
       <div id="cList"></div>
       <div id="cUnmatched"></div>
+    </div>
+    <div class="card">
+      <h2>🕘 校正记录</h2>
+      <p class="hint">每次上传平台截图跑校正都会在这里留痕（时间、平台、识别/匹配/细化笔数），点开可看每笔从什么标签改成了什么。记录随云同步保存，最多留最近30次。</p>
+      <div id="corrLogList"></div>
     </div>
   </div>
 
@@ -522,14 +530,14 @@ create policy "board access" on expense_ledger
 
 <div class="toast" id="toast"></div>
 
-<script id="embedded-data" type="application/json">{"savedAt":0,"tx":[],"rules":{},"uploads":[]}</script>
+<script id="embedded-data" type="application/json">{"savedAt":0,"tx":[],"rules":{},"uploads":[],"correctLog":[]}</script>
 <script>
 /* SECTION: state */
 var STORE_KEY = 'expense-helper-v1';
 var CLOUD_STORE = 'expense-helper-cloud-v1';
 var cloud = { url:'', key:'', board:'' };
 var lastChange = 0, pushTimer = null;
-var state = { tx: [], rules: {}, uploads: [] };
+var state = { tx: [], rules: {}, uploads: [], correctLog: [] };
 var now = new Date();
 var viewY = now.getFullYear(), viewM = now.getMonth();
 var cfState = { start: monthKey(now.getFullYear(), now.getMonth()), end: monthKey(now.getFullYear(), now.getMonth()) };
@@ -566,7 +574,12 @@ function migrateCatName(c, merchant){
   return '其他';
 }
 function migrateCat(t){
-  if(t.dir === 'refund'){ t.cat = '退货'; return; }
+  if(t.dir === 'refund'){
+    var valid = false;
+    for(var i = 0; i < CATS.length; i++){ if(CATS[i].id === t.cat){ valid = true; break; } }
+    if(!valid) t.cat = '退货';
+    return;
+  }
   t.cat = migrateCatName(t.cat, t.merchant);
 }
 var PALETTE = ['#4f6ef7','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b','#14b8a6','#a855f7','#eab308'];
@@ -603,7 +616,7 @@ function dirName(d){ return d === 'expense' ? '支出' : '收入'; }
 
 /* SECTION: storage */
 function persist(){
-  try { localStorage.setItem(STORE_KEY, JSON.stringify({ savedAt: lastChange || Date.now(), tx: state.tx, rules: state.rules, uploads: state.uploads || [] })); } catch(e){}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ savedAt: lastChange || Date.now(), tx: state.tx, rules: state.rules, uploads: state.uploads || [], correctLog: state.correctLog || [] })); } catch(e){}
 }
 function save(){
   lastChange = Date.now();
@@ -617,10 +630,10 @@ function load(){
   var embOk = emb && Array.isArray(emb.tx) && (emb.savedAt > 0 || emb.tx.length > 0);
   var locOk = loc && Array.isArray(loc.tx) && (loc.savedAt > 0 || loc.tx.length > 0);
   if(embOk && locOk){
-    if(emb.savedAt > loc.savedAt){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; lastChange = emb.savedAt; persist(); }
-    else { state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
-  } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; lastChange = emb.savedAt; persist(); }
-  else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; lastChange = loc.savedAt; }
+    if(emb.savedAt > loc.savedAt){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; state.correctLog = emb.correctLog || []; lastChange = emb.savedAt; persist(); }
+    else { state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; state.correctLog = loc.correctLog || []; lastChange = loc.savedAt; }
+  } else if(embOk){ state.tx = emb.tx; state.rules = emb.rules || {}; state.uploads = emb.uploads || []; state.correctLog = emb.correctLog || []; lastChange = emb.savedAt; persist(); }
+  else if(locOk){ state.tx = loc.tx; state.rules = loc.rules || {}; state.uploads = loc.uploads || []; state.correctLog = loc.correctLog || []; lastChange = loc.savedAt; }
   state.tx.forEach(function(t){ t.channel = normPlatform(t.channel); migrateCat(t); t.merchant = cleanMerchant(t.merchant); });
   var nr = {};
   for(var rk in state.rules){ var ck = cleanMerchant(rk); var mv = migrateCatName(state.rules[rk], ''); if(!nr[ck]) nr[ck] = mv; }
@@ -674,7 +687,7 @@ function syncNow(){
   }).then(function(rows){
     var row = rows && rows[0];
     if(row && row.updated_at > lastChange && row.data && Array.isArray(row.data.tx)){
-      state.tx = row.data.tx; state.rules = row.data.rules || {}; state.uploads = row.data.uploads || [];
+      state.tx = row.data.tx; state.rules = row.data.rules || {}; state.uploads = row.data.uploads || []; state.correctLog = row.data.correctLog || [];
       lastChange = row.updated_at;
       persist(); renderAll();
       setSync('已同步 · 云端更新', 'ok');
@@ -684,7 +697,7 @@ function syncNow(){
       return fetch(base + '/rest/v1/expense_ledger', {
         method: 'POST',
         headers: cloudHeaders({ 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }),
-        body: JSON.stringify({ board: cloud.board, data: { tx: state.tx, rules: state.rules, uploads: state.uploads || [] }, updated_at: lastChange })
+        body: JSON.stringify({ board: cloud.board, data: { tx: state.tx, rules: state.rules, uploads: state.uploads || [], correctLog: state.correctLog || [] }, updated_at: lastChange })
       }).then(function(r){
         if(!r.ok) throw new Error('http ' + r.status);
         setSync('已同步 · ' + new Date().toTimeString().slice(0,5), 'ok');
@@ -1441,7 +1454,7 @@ function renderRules(){
     box.appendChild(it);
   });
 }
-function renderAll(){ renderList(); renderCharts(); renderRules(); renderBills(); }
+function renderAll(){ renderList(); renderCharts(); renderRules(); renderBills(); renderCorrectLog(); }
 
 /* SECTION: edit modal */
 function openEdit(id){
@@ -1484,7 +1497,7 @@ function deleteEdit(){
 
 /* SECTION: backup */
 function exportBackup(){
-  var payload = { app: '记账小助手', version: 1, exportedAt: new Date().toISOString(), tx: state.tx, rules: state.rules, uploads: state.uploads || [] };
+  var payload = { app: '记账小助手', version: 1, exportedAt: new Date().toISOString(), tx: state.tx, rules: state.rules, uploads: state.uploads || [], correctLog: state.correctLog || [] };
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1504,6 +1517,7 @@ function importBackup(file){
       state.tx = data.tx;
       state.rules = data.rules || {};
       if(Array.isArray(data.uploads)) state.uploads = data.uploads;
+      if(Array.isArray(data.correctLog)) state.correctLog = data.correctLog;
       save(); renderAll(); toast('导入成功，共 ' + data.tx.length + ' 笔');
     } catch(e){ toast('文件格式不对，导入失败'); }
   };
@@ -2245,8 +2259,10 @@ function matchItems(items){
       if(t.dir !== wantDir) return false;
       if(Math.abs(t.amount - it.amount) > 0.005) return false;
       if(it.mon != null){
-        var tm = +t.date.slice(5, 7), td = +t.date.slice(8, 10);
-        if(tm !== it.mon || td !== it.day) return false;
+        var d1 = new Date(+t.date.slice(0, 4), +t.date.slice(5, 7) - 1, +t.date.slice(8, 10)).getTime();
+        var d2 = new Date(now.getFullYear(), it.mon - 1, it.day).getTime();
+        var diff = Math.abs(d1 - d2) / 86400000;
+        if(diff > (it.refund ? 1 : 0)) return false;
       }
       return true;
     });
@@ -2257,6 +2273,39 @@ function matchItems(items){
     matched.push({ tx: tx, item: it, suggest: g.sure ? g.cat : tx.cat, sure: g.sure });
   });
   return { matched: matched, unmatched: unmatched };
+}
+function renderCorrectLog(){
+  var box = document.getElementById('corrLogList');
+  if(!box) return;
+  box.innerHTML = '';
+  var logs = state.correctLog || [];
+  if(!logs.length){
+    var e = document.createElement('div'); e.className = 'parse-empty';
+    e.textContent = '还没有校正记录；上传平台截图跑一次校正后会自动留痕';
+    box.appendChild(e);
+    return;
+  }
+  logs.forEach(function(L){
+    var det = document.createElement('details');
+    det.className = 'log-item';
+    var sm = document.createElement('summary');
+    sm.textContent = billGroupLabel(L.ts) + ' · ' + (L.plat || '') + '账单 · 识别' + L.items + '条 · 匹配' + (L.matched != null ? L.matched : L.refMatched) + '笔 · 细化' + L.changed + '笔' + (L.unmatched ? ' · 未匹配' + L.unmatched + '条' : '');
+    det.appendChild(sm);
+    var body = document.createElement('div'); body.className = 'log-body';
+    if(!L.details || !L.details.length){
+      var p0 = document.createElement('div'); p0.className = 'p-merchant';
+      p0.textContent = '本次没有标签改动';
+      body.appendChild(p0);
+    } else {
+      L.details.forEach(function(d){
+        var p = document.createElement('div'); p.className = 'p-merchant';
+        p.textContent = (d.d || '').slice(5).replace('-', '月') + '日 ' + (d.t || '') + ' · ' + money(d.a) + ' · ' + d.from + ' → ' + d.to + (d.p ? ' · ' + d.p : '');
+        body.appendChild(p);
+      });
+    }
+    det.appendChild(body);
+    box.appendChild(det);
+  });
 }
 function renderCorrectResult(res, plat, changes){
   var card = document.getElementById('cResultCard');
@@ -2277,7 +2326,8 @@ function renderCorrectResult(res, plat, changes){
     item.appendChild(m1);
     box.appendChild(item);
   });
-  document.getElementById('cCount').textContent = '识别为' + PLATFORM_NAME[plat] + '账单 · 已细化退货标签 ' + changes.length + ' 笔（支出标签保持你手工改的结果，一律不动）';
+  var refMatched = res.matched.filter(function(r){ return r.tx.dir === 'refund'; }).length;
+  document.getElementById('cCount').textContent = '识别为' + PLATFORM_NAME[plat] + '账单 · 匹配 ' + res.matched.length + ' 笔（其中退货 ' + refMatched + '） · 已细化 ' + changes.length + ' 笔 · 未匹配 ' + res.unmatched.length + ' 条';
   var um = document.getElementById('cUnmatched');
   um.innerHTML = '';
   if(res.unmatched.length){
@@ -2325,7 +2375,6 @@ function runCorrect(files){
     var res = matchItems(items);
     var changes = [];
     res.matched.forEach(function(r){
-      if(r.tx.dir !== 'refund') return;
       if(r.sure && r.suggest !== r.tx.cat){
         var oldCat = r.tx.cat;
         r.tx.cat = r.suggest;
@@ -2333,9 +2382,24 @@ function runCorrect(files){
         changes.push({ tx: r.tx, from: oldCat, to: r.suggest, product: r.item.product });
       }
     });
-    if(changes.length){ save(); renderAll(); }
+    var refMatched = res.matched.filter(function(r){ return r.tx.dir === 'refund'; }).length;
+    if(!Array.isArray(state.correctLog)) state.correctLog = [];
+    state.correctLog.unshift({
+      ts: Date.now(),
+      plat: PLATFORM_NAME[plat],
+      items: items.length,
+      matched: res.matched.length,
+      refMatched: refMatched,
+      changed: changes.length,
+      unmatched: res.unmatched.length,
+      details: changes.slice(0, 50).map(function(c){ return { d: c.tx.date, t: c.tx.time, a: c.tx.amount, from: c.from, to: c.to, p: (c.product || '').slice(0, 24) }; })
+    });
+    if(state.correctLog.length > 30) state.correctLog.length = 30;
+    save();
+    if(changes.length) renderAll();
+    renderCorrectLog();
     renderCorrectResult(res, plat, changes);
-    toast(changes.length ? '已更改 ' + changes.length + ' 个标签' : '标签都对，无需更改');
+    toast(changes.length ? '已细化标签 ' + changes.length + ' 笔，已记入校正记录' : '本次没有可细化的标签，已记入校正记录');
   }).catch(function(){
     document.getElementById('cProgress').hidden = true;
     toast('识别失败：请重试，或检查网络（首次需加载识别引擎）');
@@ -2517,7 +2581,7 @@ document.getElementById('dedupeBtn').addEventListener('click', function(){
 document.getElementById('resetBtn').addEventListener('click', function(){
   if(!confirm('确定清空全部记账数据吗？建议先导出备份。')) return;
   if(!confirm('再确认一次：清空后无法恢复（云端也会同步清空）。继续？')) return;
-  state.tx = []; state.rules = {}; state.uploads = [];
+  state.tx = []; state.rules = {}; state.uploads = []; state.correctLog = [];
   clearBillImages();
   save(); renderAll(); toast('已清空');
 });
