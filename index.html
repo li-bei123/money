@@ -374,7 +374,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
   <div class="panel" id="panel-correct">
     <div class="card">
       <h2>🏷️ 标签校正（选做）</h2>
-      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。退款/退货笔也会按商品名细化标签（如童装退款→孩子服饰、女装退款→服饰鞋帽），商品名看不出类别的保持"退货"。不传也不影响正常记账。</p>
+      <p class="hint">上传平台截图（抖音"账单"页 / 淘宝"我的订单" / 京东订单页），自动识别商品名，按"金额＋收支方向＋同一天日期"精确匹配账本里的笔，直接改好标签并提示改动数量，同时记住商户偏好，以后短信自动打对标签。只细化退货笔的标签（如童装退款→孩子服饰、女装退款→服饰鞋帽），商品名看不出类别的保持"退货"；支出笔的标签一律不动，完全尊重你手工改好的结果。不传也不影响正常记账。</p>
       <div class="upload-zone" id="cUploadZone">
         <span class="uz-ico">🧾</span>
         <span class="uz-t">点击选择平台截图</span>
@@ -388,7 +388,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
     </div>
     <div class="card" id="cResultCard" hidden>
       <h2>校正结果 <span id="cCount" style="font-size:12px;color:var(--muted);font-weight:400"></span></h2>
-      <p class="hint">已自动按商品名改好标签，下面列出改动明细供复查；改错的可在明细页点那笔改回（改回后会记住你的选择）。</p>
+      <p class="hint">已自动细化退货笔的标签，下面列出改动明细供复查；支出笔未做任何改动。改错的可在明细页点那笔改回。</p>
       <div id="cList"></div>
       <div id="cUnmatched"></div>
     </div>
@@ -2277,8 +2277,7 @@ function renderCorrectResult(res, plat, changes){
     item.appendChild(m1);
     box.appendChild(item);
   });
-  var uncertain = res.matched.length - changes.length;
-  document.getElementById('cCount').textContent = '识别为' + PLATFORM_NAME[plat] + '账单 · 匹配 ' + res.matched.length + ' 笔 · 已改 ' + changes.length + ' 笔' + (uncertain > 0 ? ' · ' + uncertain + ' 笔没把握未动' : '');
+  document.getElementById('cCount').textContent = '识别为' + PLATFORM_NAME[plat] + '账单 · 已细化退货标签 ' + changes.length + ' 笔（支出标签保持你手工改的结果，一律不动）';
   var um = document.getElementById('cUnmatched');
   um.innerHTML = '';
   if(res.unmatched.length){
@@ -2326,6 +2325,7 @@ function runCorrect(files){
     var res = matchItems(items);
     var changes = [];
     res.matched.forEach(function(r){
+      if(r.tx.dir !== 'refund') return;
       if(r.sure && r.suggest !== r.tx.cat){
         var oldCat = r.tx.cat;
         r.tx.cat = r.suggest;
