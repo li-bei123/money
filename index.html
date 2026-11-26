@@ -40,9 +40,9 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
 .btn.block{width:100%}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-.field{margin-bottom:10px;min-width:0}
+.field{margin-bottom:8px;min-width:0}
 .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-.field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:#fafbfe;min-height:44px}
+.field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;background:#fafbfe;min-height:40px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 .form-grid .wide{grid-column:1/-1}
 details.manual{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
@@ -148,6 +148,7 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .cat-dd-item:hover{background:var(--accent-soft)}
 .cat-dd-item.selected{color:var(--accent);font-weight:700}
 .cat-dd-item.sub{font-size:12px;padding:2px 8px}
+.cat-dd.pop-up .cat-dd-pop{top:auto;bottom:calc(100% + 4px)}
 .trend-filter{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
 .trend-filter .f-item{flex:1;min-width:110px}
 .trend-filter .btn{min-height:36px;padding:6px 16px;font-size:13px;flex:none}
@@ -208,7 +209,8 @@ details.manual summary{cursor:pointer;font-weight:600;color:var(--accent);font-s
 .panel.active{display:block}
 /* SECTION: modal & toast */
 .modal-mask{position:fixed;inset:0;background:rgba(20,25,40,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
-.modal{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:460px;max-height:86vh;overflow-y:auto;min-width:0}
+.modal{background:var(--card);border-radius:16px;padding:16px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;min-width:0}
+.modal.edit-modal{overflow:visible}
 .modal h3{font-size:17px;margin-bottom:8px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:12px}
 .modal label{display:block;font-size:13px;color:var(--muted);margin-bottom:10px}
@@ -491,15 +493,15 @@ create policy "board access" on expense_ledger
 
 <!-- SECTION: edit modal -->
 <div class="modal-mask" id="editModal" hidden>
-  <div class="modal">
+  <div class="modal edit-modal">
     <h3>修改这笔账</h3>
     <div class="form-grid">
       <div class="field"><label>日期</label><input type="date" id="eDate"></div>
       <div class="field"><label>时间</label><input type="time" id="eTime"></div>
       <div class="field"><label>金额（元）</label><input type="number" id="eAmount" step="0.01" min="0" inputmode="decimal"></div>
       <div class="field"><label>类型</label><select id="eDir"><option value="expense">支出</option><option value="income">收入</option><option value="refund">退款</option></select></div>
-      <div class="field wide"><label>标签</label><div id="eCatHost" style="display:flex"></div></div>
-      <div class="field wide"><label>商户 / 说明</label><input type="text" id="eMerchant"></div>
+      <div class="field"><label>标签</label><div id="eCatHost" style="display:flex"></div></div>
+      <div class="field"><label>商户 / 说明</label><input type="text" id="eMerchant"></div>
     </div>
     <div class="modal-row">
       <button type="button" class="btn danger" id="eDeleteBtn">删除这笔</button>
@@ -2010,6 +2012,10 @@ function createCatPicker(initial, onChange, extraOpts){
     var willOpen = pop.hidden;
     closeAllCatPickers();
     pop.hidden = !willOpen;
+    if(willOpen){
+      var r = btn.getBoundingClientRect();
+      wrap.classList.toggle('pop-up', window.innerHeight - r.bottom < 360 && r.top > 360);
+    }
     refresh();
   });
   wrap.appendChild(btn); wrap.appendChild(pop);
